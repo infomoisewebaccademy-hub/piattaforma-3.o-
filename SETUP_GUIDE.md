@@ -1,7 +1,7 @@
 
 # Guida Integrazione Stripe & Supabase (VS Code)
 
-Segui questa guida sequenziale per attivare i pagamenti.
+Segui questa guida sequenziale per attivare i pagamenti e le funzionalità avanzate.
 
 ## 1. Prerequisiti
 Apri il terminale di VS Code ed esegui:
@@ -38,30 +38,21 @@ I file delle funzioni sono già nella cartella `supabase/functions`. Pubblicali 
 npx supabase functions deploy create-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
 ```
-*(Nota: `--no-verify-jwt` serve per permettere chiamate pubbliche o gestite internamente, essenziale per i webhook)*
 
 ## 5. Attivazione Webhook Stripe
-1.  Copia l'URL del webhook ottenuto dal deploy (es. `https://.../functions/v1/stripe-webhook`).
+1.  Copia l'URL del webhook ottenuto dal deploy.
 2.  Vai su [Stripe Webhooks](https://dashboard.stripe.com/test/webhooks).
-3.  Crea un nuovo endpoint incollando l'URL.
-4.  Seleziona l'evento: `checkout.session.completed`.
-5.  Salva e copia il "Signing Secret" (`whsec_...`).
-6.  Impostalo su Supabase:
+3.  Crea un nuovo endpoint selezionando l'evento: `checkout.session.completed`.
+4.  Salva e copia il "Signing Secret" (`whsec_...`).
+5.  Impostalo su Supabase:
     ```bash
     npx supabase secrets set STRIPE_WEBHOOK_SIGNING_SECRET=whsec_...
     ```
 
-## 6. Configurazione Frontend
-Assicurati che il tuo file `.env` o le variabili d'ambiente di produzione (es. su Vercel/Netlify) abbiano:
+## 6. Configurazione Database (SQL)
+Vai su Supabase Dashboard > SQL Editor ed esegui questi script:
 
-```
-VITE_SUPABASE_URL=https://IL_TUO_ID.supabase.co
-VITE_SUPABASE_ANON_KEY=la_tua_chiave_anon_pubblica
-```
-
-## 7. Configurazione Database (SQL)
-Vai su Supabase Dashboard > SQL Editor ed esegui questo script per creare la tabella degli acquisti:
-
+### Tabella Acquisti
 ```sql
 create table purchases (
   id uuid default uuid_generate_v4() primary key,
@@ -72,20 +63,43 @@ create table purchases (
 );
 
 alter table purchases enable row level security;
-
-create policy "Users can view own purchases" 
-on purchases for select 
-using ( auth.uid() = user_id );
-
-create policy "Service role inserts" 
-on purchases for insert 
-with check ( true );
+create policy "Users can view own purchases" on purchases for select using ( auth.uid() = user_id );
+create policy "Service role inserts" on purchases for insert with check ( true );
 ```
 
-## Risoluzione Problemi Comuni
+### Tabella Progresso Lezioni
+```sql
+create table lesson_progress (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  course_id text not null,
+  lesson_id text not null,
+  completed boolean default false,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, lesson_id)
+);
 
-**Errore: "Functions not found"**
-Se VS Code non trova la cartella `supabase`, esegui `npx supabase init` (non sovrascrivere `config.toml` se non necessario).
+alter table lesson_progress enable row level security;
+create policy "Gli utenti possono gestire il proprio progresso" 
+on lesson_progress for all 
+using ( auth.uid() = user_id );
+```
 
-**Errore 500 al pagamento**
-Controlla i log delle funzioni su Supabase Dashboard > Edge Functions > Logs. Spesso è la `STRIPE_SECRET_KEY` mancante o errata.
+### Tabella Community Chat (NUOVA)
+```sql
+create table community_messages (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  user_name text not null,
+  text text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table community_messages enable row level security;
+create policy "Tutti gli autenticati possono leggere i messaggi" on community_messages for select using ( auth.role() = 'authenticated' );
+create policy "Gli utenti possono inviare messaggi" on community_messages for insert with check ( auth.uid() = user_id );
+
+-- ABILITA IL REALTIME: Vai su Supabase Dashboard > Database > Replication > 'supabase_realtime' publication
+-- e aggiungi la tabella community_messages, oppure usa il comando SQL:
+alter publication supabase_realtime add table community_messages;
+```

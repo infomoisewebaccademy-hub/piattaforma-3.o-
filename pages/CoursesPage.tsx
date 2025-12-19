@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Course, UserProfile } from '../types';
-import { CheckCircle, ShoppingCart } from 'lucide-react';
+import { CheckCircle, ShoppingCart, Lock } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,11 +26,15 @@ const CourseCard: React.FC<{
     
     const handleAddToCart = (e: React.MouseEvent) => {
         e.stopPropagation();
+        if (course.status && course.status !== 'active') return;
         addToCart(course);
     };
 
     const isPurchased = user?.purchased_courses.includes(course.id);
     const inCart = isInCart(course.id);
+    const isFull = course.status === 'full';
+    const isComingSoon = course.status === 'coming_soon';
+    const isNotActive = isFull || isComingSoon;
     
     // Logica per troncare il testo
     const shouldTruncate = course.description.length > MAX_PREVIEW_LENGTH;
@@ -41,12 +45,24 @@ const CourseCard: React.FC<{
         : course.description.slice(0, MAX_PREVIEW_LENGTH).trim() + "...";
 
     return (
-        <div className="bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 flex flex-col h-full group hover:border-brand-500 transition-all duration-300 shadow-xl">
+        <div className={`bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 flex flex-col h-full group hover:border-brand-500 transition-all duration-300 shadow-xl ${isNotActive ? 'opacity-90' : ''}`}>
             
             <div className="relative h-56 overflow-hidden cursor-pointer" onClick={() => onCourseSelect(course.id)}>
-                <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100" />
-                <div className="absolute top-4 right-4 bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-brand-400 uppercase tracking-wide border border-slate-700">
-                    {course.level}
+                <img src={course.image} alt={course.title} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100 ${isNotActive ? 'grayscale-[0.5]' : ''}`} />
+                <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                    <div className="bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-brand-400 uppercase tracking-wide border border-slate-700 shadow-lg">
+                        {course.level}
+                    </div>
+                    {isFull && (
+                        <div className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-red-400 shadow-lg">
+                            Posti Esauriti
+                        </div>
+                    )}
+                    {isComingSoon && (
+                        <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-blue-400 shadow-lg">
+                            In Arrivo
+                        </div>
+                    )}
                 </div>
             </div>
             
@@ -93,8 +109,22 @@ const CourseCard: React.FC<{
                     >
                         Vai al Corso
                     </button>
+                    ) : isFull ? (
+                    <button 
+                        disabled
+                        className="bg-slate-700 text-slate-400 px-6 py-3 rounded-lg font-bold flex-1 cursor-not-allowed border border-slate-600"
+                    >
+                        Sold Out
+                    </button>
+                    ) : isComingSoon ? (
+                    <button 
+                        disabled
+                        className="bg-slate-700 text-slate-400 px-6 py-3 rounded-lg font-bold flex-1 cursor-not-allowed border border-slate-600"
+                    >
+                        In Arrivo
+                    </button>
                     ) : (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-1">
                         <button 
                             onClick={(e) => {
                                 if (inCart) navigate('/cart');
@@ -107,7 +137,7 @@ const CourseCard: React.FC<{
                         </button>
                         <button 
                             onClick={() => onCourseSelect(course.id)}
-                            className="bg-white text-slate-900 px-4 py-3 rounded-lg font-bold hover:bg-slate-200 transition-colors"
+                            className="bg-white text-slate-900 px-4 py-3 rounded-lg font-bold hover:bg-slate-200 transition-colors flex-1"
                         >
                             Dettagli
                         </button>

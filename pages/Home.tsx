@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Course, UserProfile, LandingPageConfig } from '../types';
 import { CheckCircle, ArrowRight, ShieldCheck, Zap, Database, Layout, Target, Cpu, Layers, Users, Lock, Quote, Star, Award, Smartphone, MessageCircle, CheckCircle2, X, PlayCircle, BookOpen, MapPin, Phone, Mail, Facebook, Instagram, Linkedin, Youtube, CreditCard, Check, XCircle, Banknote, Rocket, TrendingUp, UserCheck, AlertTriangle, ChevronDown, ChevronUp, HelpCircle, Clock, Video, Image, Upload, Sparkles, Monitor, Loader2, ExternalLink, MoveHorizontal, Laptop } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Footer } from '../components/Footer';
 
 interface HomeProps {
   courses: Course[];
@@ -11,223 +12,6 @@ interface HomeProps {
   // Riceviamo l'intera configurazione
   landingConfig?: LandingPageConfig;
 }
-
-// --- COMPONENTI INTERNI OTTIMIZZATI ---
-
-const WebsiteCard: React.FC<{ url: string; index: number; isMobileView: boolean }> = ({ url, index, isMobileView }) => {
-    const [isLoading, setIsLoading] = useState(true);
-    const [isVisible, setIsVisible] = useState(false);
-    const [isInteracting, setIsInteracting] = useState(false);
-    const [scale, setScale] = useState(1);
-    
-    const containerRef = useRef<HTMLDivElement>(null);
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const animationRef = useRef<number>(0);
-    
-    // CONFIGURAZIONE RESPONSIVE
-    // Desktop: Simula un Laptop (1280px)
-    // Mobile: Simula uno Smartphone (375px)
-    const TARGET_WIDTH = isMobileView ? 375 : 1280; 
-    const VIRTUAL_HEIGHT = 5000;       
-    const BASE_SPEED = 0.6;            
-
-    // Configurazione Direzione Verticale: index pari = GIÙ, dispari = SU
-    const directionRef = useRef<number>(index % 2 === 0 ? 1 : -1);
-
-    // 1. Calcolo Scala Dinamico
-    useEffect(() => {
-        const handleResize = () => {
-            if (!containerRef.current) return;
-            const containerWidth = containerRef.current.clientWidth;
-            // Calcola la scala basandosi sulla larghezza del contenitore (che è la "schermo" del device simulato)
-            const newScale = containerWidth / TARGET_WIDTH;
-            setScale(newScale);
-        };
-
-        handleResize();
-        // Un piccolo delay per assicurarsi che il DOM sia pronto
-        setTimeout(handleResize, 100);
-        
-        window.addEventListener('resize', handleResize);
-        
-        const observer = new IntersectionObserver(
-            ([entry]) => setIsVisible(entry.isIntersecting),
-            { threshold: 0.1 }
-        );
-        if (containerRef.current) observer.observe(containerRef.current);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            observer.disconnect();
-        };
-    }, [TARGET_WIDTH, isMobileView]);
-
-    // 2. Posizionamento Iniziale Scroll Verticale
-    useEffect(() => {
-        if (!isLoading && scrollRef.current && directionRef.current === -1) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
-        }
-    }, [isLoading]);
-
-    // 3. Animation Loop Verticale (Interno al sito)
-    useEffect(() => {
-        const animate = () => {
-            if (isVisible && !isInteracting && !isLoading && scrollRef.current) {
-                const el = scrollRef.current;
-                const maxScroll = el.scrollHeight - el.clientHeight;
-                
-                let newScrollTop = el.scrollTop + (BASE_SPEED * directionRef.current);
-
-                if (newScrollTop >= maxScroll) {
-                    newScrollTop = maxScroll;
-                    directionRef.current = -1; 
-                } else if (newScrollTop <= 0) {
-                    newScrollTop = 0;
-                    directionRef.current = 1; 
-                }
-
-                el.scrollTop = newScrollTop;
-            }
-            animationRef.current = requestAnimationFrame(animate);
-        };
-
-        animationRef.current = requestAnimationFrame(animate);
-        return () => cancelAnimationFrame(animationRef.current!);
-    }, [isVisible, isInteracting, isLoading]);
-
-    // Render Laptop Frame (Desktop)
-    if (!isMobileView) {
-        return (
-            <div 
-                className="w-[500px] h-[330px] relative group flex-shrink-0 mx-6 perspective-1000"
-                onMouseEnter={() => setIsInteracting(true)}
-                onMouseLeave={() => setIsInteracting(false)}
-                onTouchStart={() => setIsInteracting(true)}
-                onTouchEnd={() => setIsInteracting(false)}
-            >
-                {/* Laptop Top (Screen) */}
-                <div className="absolute inset-x-0 top-0 bottom-4 bg-gray-800 rounded-t-xl rounded-b-md border-[3px] border-gray-700 shadow-2xl flex flex-col overflow-hidden ring-1 ring-white/10">
-                    
-                    {/* Webcam & Bezel */}
-                    <div className="h-6 bg-gray-900 flex justify-center items-center relative z-20 shrink-0">
-                        <div className="w-1.5 h-1.5 bg-black rounded-full ring-1 ring-gray-700"></div>
-                        <div className="absolute left-3 top-1.5 flex gap-1.5 opacity-50 hover:opacity-100 transition-opacity">
-                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        </div>
-                    </div>
-
-                    {/* Screen Container */}
-                    <div ref={containerRef} className="relative flex-1 bg-white w-full overflow-hidden">
-                        {isLoading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 z-30">
-                                <Loader2 className="h-8 w-8 text-brand-600 animate-spin mb-2" />
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Caricamento Desktop...</span>
-                            </div>
-                        )}
-                        
-                        {/* Scaled Content */}
-                        <div 
-                            style={{
-                                width: TARGET_WIDTH,
-                                height: `calc(100% / ${scale})`,
-                                transform: `scale(${scale})`,
-                                transformOrigin: 'top left',
-                            }}
-                            className="absolute top-0 left-0 bg-white"
-                        >
-                            <div 
-                                ref={scrollRef}
-                                className="w-full h-full overflow-y-auto scrollbar-hide"
-                                style={{ scrollBehavior: 'auto', overscrollBehavior: 'contain' }} 
-                            >
-                                <div style={{ height: VIRTUAL_HEIGHT }} className="w-full relative">
-                                    <iframe 
-                                        src={url} 
-                                        className="w-full h-full border-none pointer-events-none block" 
-                                        loading="lazy"
-                                        scrolling="no"
-                                        onLoad={() => setIsLoading(false)}
-                                        title="Desktop Preview"
-                                        sandbox="allow-scripts allow-same-origin"
-                                    ></iframe>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                {/* Laptop Base (Bottom) */}
-                <div className="absolute bottom-0 inset-x-[-20px] h-4 bg-gray-300 rounded-b-xl rounded-t-sm shadow-xl flex items-center justify-center border-t border-gray-400/50 gradient-to-b from-gray-200 to-gray-400">
-                    <div className="w-20 h-1.5 bg-gray-400/30 rounded-full"></div>
-                </div>
-                
-                <a href={url} target="_blank" rel="noopener noreferrer" className="absolute top-3 right-3 z-30 text-slate-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100 p-2 bg-black/50 rounded-full backdrop-blur-sm">
-                    <ExternalLink className="h-4 w-4" />
-                </a>
-            </div>
-        );
-    }
-
-    // Render Phone Frame (Mobile)
-    return (
-        <div 
-            ref={containerRef}
-            className="w-[260px] h-[480px] relative group flex-shrink-0 rounded-[2.5rem] border-[6px] border-slate-800 bg-slate-900 shadow-2xl overflow-hidden transform transition-transform duration-300 hover:scale-[1.01] mx-4"
-            onMouseEnter={() => setIsInteracting(true)}
-            onMouseLeave={() => setIsInteracting(false)}
-            onTouchStart={() => setIsInteracting(true)}
-            onTouchEnd={() => setIsInteracting(false)}
-        >
-            {/* Notch */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-6 bg-slate-800 rounded-b-xl z-20 flex justify-center items-center">
-                <div className="w-10 h-1 bg-slate-700 rounded-full"></div>
-            </div>
-
-            <div className="w-full h-full bg-white relative overflow-hidden rounded-[2rem]">
-                {isLoading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 z-30">
-                        <Loader2 className="h-8 w-8 text-brand-600 animate-spin mb-2" />
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Caricamento Mobile...</span>
-                    </div>
-                )}
-
-                <div 
-                    style={{
-                        width: TARGET_WIDTH,
-                        height: `calc(100% / ${scale})`,
-                        transform: `scale(${scale})`,
-                        transformOrigin: 'top left',
-                    }}
-                    className="absolute top-0 left-0 bg-white"
-                >
-                    <div 
-                        ref={scrollRef}
-                        className="w-full h-full overflow-y-auto scrollbar-hide"
-                        style={{ scrollBehavior: 'auto', overscrollBehavior: 'contain' }} 
-                    >
-                        <div style={{ height: VIRTUAL_HEIGHT }} className="w-full relative">
-                            <iframe 
-                                src={url} 
-                                className="w-full h-full border-none pointer-events-none block" 
-                                loading="lazy"
-                                scrolling="no"
-                                onLoad={() => setIsLoading(false)}
-                                title="Mobile Preview"
-                                sandbox="allow-scripts allow-same-origin"
-                            ></iframe>
-                        </div>
-                    </div>
-                </div>
-
-                <a href={url} target="_blank" rel="noopener noreferrer" className="absolute bottom-4 right-4 z-20 bg-black/80 text-white p-2 rounded-full backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ExternalLink className="h-4 w-4" />
-                </a>
-            </div>
-        </div>
-    );
-};
 
 // ... (DEFAULT_CONFIG, IconMap, FAQ_ITEMS restano invariati) ...
 const DEFAULT_CONFIG: LandingPageConfig = {
@@ -512,11 +296,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewForm, setReviewForm] = useState({ name: '', text: '', rating: 5 });
 
-  // Showcase Slider Ref
-  const sliderRef = useRef<HTMLDivElement>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isMobileView, setIsMobileView] = useState(false);
-
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
@@ -533,16 +312,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
              lowerUrl.includes('.mov');
   };
 
-  // Detect Mobile/Desktop
-  useEffect(() => {
-      const checkMobile = () => {
-          setIsMobileView(window.innerWidth < 1024); // Consider tablets/desktop as "Desktop view" for showcase
-      };
-      checkMobile();
-      window.addEventListener('resize', checkMobile);
-      return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
   // Merge config with defaults
   const config = useMemo(() => {
     if (!landingConfig) return DEFAULT_CONFIG;
@@ -557,7 +326,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
         aboutToUse = { ...aboutToUse, mission_points: DEFAULT_CONFIG.about_section.mission_points };
     }
 
-    // FIX VIDEO: Se l'URL nel DB è un'immagine (vecchio default) ma noi vogliamo il video (nuovo default), forziamo l'aggiornamento in memoria
     if (aboutToUse && aboutToUse.image_url && !isVideo(aboutToUse.image_url) && isVideo(DEFAULT_CONFIG.about_section.image_url)) {
          aboutToUse = { ...aboutToUse, image_url: DEFAULT_CONFIG.about_section.image_url };
     }
@@ -636,27 +404,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
   const preTitle = titleParts[0] || "Perché nasce ";
   const brandTitle = "Moise Web Academy";
 
-  // Auto-scroll orizzontale
-  useEffect(() => {
-      let animationId: number;
-      const scrollSpeed = 0.5; // Velocità ridotta per leggibilità
-
-      const scroll = () => {
-          if (sliderRef.current && !isPaused) {
-              sliderRef.current.scrollLeft += scrollSpeed;
-              
-              // Infinite Loop Logic: Resetta la posizione quando arriva a metà contenuto (grazie alla duplicazione)
-              if (sliderRef.current.scrollLeft >= (sliderRef.current.scrollWidth / 2)) {
-                  sliderRef.current.scrollLeft = 0;
-              }
-          }
-          animationId = requestAnimationFrame(scroll);
-      };
-
-      animationId = requestAnimationFrame(scroll);
-      return () => cancelAnimationFrame(animationId);
-  }, [isPaused]);
-
   return (
     <div className="flex flex-col min-h-screen font-sans antialiased text-slate-100 bg-slate-950 selection:bg-brand-500/30">
       
@@ -670,7 +417,7 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
       {config.announcement_bar.is_visible && (
         <div 
             className={`w-full z-40 overflow-hidden backdrop-blur-md border-b border-white/5 ${isSticky ? 'fixed top-20 shadow-md' : 'relative mt-20'}`}
-            style={{ backgroundColor: 'rgba(23, 37, 84, 0.8)', color: config.announcement_bar.text_color }} // Custom dark glass for bar
+            style={{ backgroundColor: 'rgba(23, 37, 84, 0.8)', color: config.announcement_bar.text_color }} 
         >
             <style>{`
                 @keyframes marquee {
@@ -809,8 +556,8 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                               </div>
                           </div>
 
-                          {/* Right Video Visual */}
-                          <div className="relative rounded-3xl overflow-hidden h-[500px] w-full shadow-2xl ring-1 ring-white/10 group">
+                          {/* Right Video Visual - ALTAMENTE INGRANDITO PER MATCHARE IL RIQUADRO ROSSO */}
+                          <div className="relative rounded-3xl overflow-hidden lg:h-[750px] md:h-[600px] h-[450px] w-full shadow-2xl ring-1 ring-white/10 group">
                                <video 
                                   src="https://res.cloudinary.com/dhj0ztos6/video/upload/v1765328025/home_page_3_tnvnqm.webm"
                                   autoPlay loop muted playsInline 
@@ -946,14 +693,20 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
                         </div>
                         
-                        {/* Floating Quote Card */}
-                        <div className="absolute -bottom-[84px] -right-6 w-[90%] md:w-[400px] bg-slate-900/90 backdrop-blur-xl p-8 rounded-2xl ring-1 ring-white/10 shadow-2xl">
-                            <Quote className="h-8 w-8 text-brand-400 mb-4 opacity-50" />
-                            <p className="font-medium text-white text-lg italic mb-6 leading-relaxed">
-                                {config.about_section.quote}
-                            </p>
+                        {/* Floating Quote Card with EXPANDABLE STORY */}
+                        <div className={`absolute -bottom-[84px] -right-6 w-[90%] md:w-[400px] bg-slate-900/95 backdrop-blur-xl p-6 md:p-8 rounded-2xl ring-1 ring-white/10 shadow-2xl transition-all duration-500 ease-in-out ${showFounderStory ? 'z-50' : 'z-20'}`}>
+                            {/* Quote visible only when collapsed or always? Let's hide it when expanded to save space on small screens */}
+                            {!showFounderStory && (
+                                <>
+                                    <Quote className="h-8 w-8 text-brand-400 mb-4 opacity-50" />
+                                    <p className="font-medium text-white text-lg italic mb-6 leading-relaxed">
+                                        {config.about_section.quote}
+                                    </p>
+                                </>
+                            )}
+
                             <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-brand-500/20 flex items-center justify-center ring-1 ring-brand-500/30 overflow-hidden">
+                                <div className="h-10 w-10 rounded-full bg-brand-500/20 flex items-center justify-center ring-1 ring-brand-500/30 overflow-hidden shrink-0">
                                     {config.about_section.quote_author_image ? (
                                         <img src={config.about_section.quote_author_image} alt="Author" className="w-full h-full object-cover"/>
                                     ) : (
@@ -963,6 +716,39 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                                 <div>
                                     <p className="text-sm font-bold text-white uppercase tracking-wider">{config.about_section.quote_author}</p>
                                     <p className="text-xs text-slate-400">Founder, MWA</p>
+                                    <button 
+                                        onClick={() => setShowFounderStory(!showFounderStory)}
+                                        className="text-brand-400 text-xs font-bold mt-1 flex items-center hover:text-brand-300 transition-colors"
+                                    >
+                                        Chi Sono <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${showFounderStory ? 'rotate-180' : ''}`} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Expanded Story Content */}
+                            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showFounderStory ? 'max-h-[400px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}>
+                                <div className="text-slate-300 text-sm leading-relaxed space-y-4 pr-2 overflow-y-auto max-h-[350px] scrollbar-thin scrollbar-thumb-brand-600 scrollbar-track-slate-800">
+                                      <p className="font-bold text-white text-base">
+                                          Ciao, sono Daniel Moise.
+                                      </p>
+                                      <p>
+                                          Da diversi anni aiuto persone e aziende a portare i loro progetti online. Ho creato decine di siti web per clienti in tutta Italia, dall'e-commerce per un brand di moda al gestionale personalizzato per un'autofficina.
+                                      </p>
+                                      <p>
+                                          Quando ho scoperto il potenziale dell'intelligenza artificiale per la creazione di siti web, ho capito subito che era una rivoluzione totale.
+                                      </p>
+                                      <p className="font-medium text-white border-l-2 border-brand-500 pl-3">
+                                          Quello che prima mi richiedeva giorni o settimane di lavoro, ora lo faccio in poche ore. E soprattutto: senza scrivere codice.
+                                      </p>
+                                      <p>
+                                          Ma c'era un problema: tutte le risorse erano in inglese, frammentate o troppo tecniche per chi partiva da zero.
+                                      </p>
+                                      <p>
+                                          Così ho deciso di creare <strong className="text-brand-400">Moise Web Academy</strong>: il primo corso in italiano completo, passo-passo, che insegna a chiunque a creare siti web professionali usando l'intelligenza artificiale.
+                                      </p>
+                                      <div className="pt-4 border-t border-white/10 mt-2">
+                                          <p className="italic text-xs text-slate-500">La mia missione? Renderti autonomo e darti una competenza che vale oro.</p>
+                                      </div>
                                 </div>
                             </div>
                         </div>
@@ -1094,7 +880,7 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
           </section>
       )}
 
-      {/* --- AI SHOWCASE (Horizontal Slider Ibrido) --- */}
+      {/* --- AI SHOWCASE (Simplified - No Slider) --- */}
       {config.ai_showcase_section?.is_visible !== false && (
           <section className="py-24 bg-slate-950 border-t border-white/5 relative overflow-hidden">
               <div className="max-w-7xl mx-auto px-6 mb-16">
@@ -1110,15 +896,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                           <p className="text-xl text-slate-400 leading-relaxed mb-12 whitespace-pre-wrap">
                               {config.ai_showcase_section?.text}
                           </p>
-                          
-                          <div className="flex items-center gap-2 text-brand-400 text-sm font-bold animate-pulse">
-                              <MoveHorizontal className="h-5 w-5" /> Scorri per esplorare
-                          </div>
-                          {!isMobileView && (
-                              <div className="mt-2 flex items-center gap-2 text-slate-500 text-xs font-mono">
-                                  <Laptop className="h-4 w-4" /> Modalità Desktop Attiva
-                              </div>
-                          )}
                       </div>
                       
                       {/* Description Panel */}
@@ -1142,33 +919,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                               </ul>
                           </div>
                       </div>
-                  </div>
-              </div>
-
-              {/* Slider Orizzontale Ibrido (Auto + Manual) */}
-              <div 
-                  className="w-full relative group"
-                  onMouseEnter={() => setIsPaused(true)}
-                  onMouseLeave={() => setIsPaused(false)}
-                  onTouchStart={() => setIsPaused(true)}
-                  onTouchEnd={() => setIsPaused(false)}
-              >
-                  {/* Fade Edges */}
-                  <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-24 bg-gradient-to-r from-slate-950 to-transparent z-10 pointer-events-none"></div>
-                  <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-24 bg-gradient-to-l from-slate-950 to-transparent z-10 pointer-events-none"></div>
-                  
-                  <div 
-                      ref={sliderRef}
-                      className="flex gap-6 sm:gap-10 overflow-x-auto px-6 sm:px-24 pb-12 scrollbar-hide cursor-grab active:cursor-grabbing"
-                  >
-                      {/* Tripla duplicazione per loop infinito fluido */}
-                      {[
-                          ...(config.ai_showcase_section?.urls || []), 
-                          ...(config.ai_showcase_section?.urls || []), 
-                          ...(config.ai_showcase_section?.urls || [])
-                      ].map((url, idx) => (
-                          <WebsiteCard key={`${url}-${idx}`} url={url} index={idx} isMobileView={isMobileView} />
-                      ))}
                   </div>
               </div>
           </section>
@@ -1262,7 +1012,7 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                           </div>
                           <div>
                               <h3 className="text-lg font-bold text-white mb-1">{item.title}</h3>
-                              <p className="text-slate-400 leading-relaxed text-sm">
+                              <p className="text-slate-400 text-sm leading-relaxed text-sm">
                                   {item.desc}
                               </p>
                           </div>
@@ -1487,82 +1237,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
           </section>
       )}
 
-      {/* SECTION - FOUNDER STORY */}
-      <section className="py-12 bg-slate-900 border-t border-white/5">
-          <div className="max-w-3xl mx-auto px-6">
-              <div 
-                  onClick={() => setShowFounderStory(!showFounderStory)}
-                  className="cursor-pointer bg-white/5 hover:bg-white/10 ring-1 ring-white/10 rounded-2xl p-6 md:p-8 flex items-center justify-between transition-all group"
-              >
-                  <div className="flex items-center gap-4">
-                      <div className="h-16 w-16 rounded-full bg-brand-500/20 flex items-center justify-center ring-1 ring-brand-500/30 overflow-hidden">
-                          <span className="font-bold text-brand-400 text-xl">DM</span>
-                      </div>
-                      <div>
-                          <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight group-hover:text-brand-400 transition-colors">
-                              CHI SONO
-                          </h2>
-                          <p className="text-slate-400 text-sm font-medium">Scopri la storia del tuo istruttore</p>
-                      </div>
-                  </div>
-                  <div className={`transform transition-transform duration-300 ${showFounderStory ? 'rotate-180' : ''}`}>
-                      <ChevronDown className="h-8 w-8 text-slate-500 group-hover:text-brand-400" />
-                  </div>
-              </div>
-
-              <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showFounderStory ? 'max-h-[2000px] opacity-100 mt-8' : 'max-h-0 opacity-0'}`}>
-                  <div className="prose prose-lg prose-invert text-slate-300 leading-relaxed">
-                      <p className="font-bold text-white text-xl mb-6">
-                          Ciao, sono Daniel Moise, fondatore di Moise Web Academy.
-                      </p>
-                      <p className="mb-4">
-                          Da diversi anni aiuto persone e aziende a portare i loro progetti online. Ho creato decine di siti web per clienti in tutta Italia, dall'e-commerce per un brand di moda al gestionale personalizzato per un AUTOFFICINA
-                      </p>
-                      <p className="mb-4">
-                          Quando ho scoperto il potenziale dell'intelligenza artificiale per la creazione di siti web, ho capito subito che era una rivoluzione totale.
-                      </p>
-                      <p className="mb-4 font-medium text-white">
-                          Quello che prima mi richiedeva giorni o settimane di lavoro, ora lo faccio in poche ore. E soprattutto: senza scrivere codice.
-                      </p>
-                      <p className="mb-4">
-                          Ma c'era un problema.
-                      </p>
-                      <p className="mb-4">
-                          Tutte le risorse erano in inglese, frammentate su mille piattaforme diverse, troppo tecniche per chi partiva da zero.
-                      </p>
-                      <p className="mb-8">
-                          Così ho deciso di creare Moise Web Academy: il primo corso in italiano completo, passo-passo, che insegna a chiunque - anche senza alcuna esperienza - a creare siti web professionali usando l'intelligenza artificiale.
-                      </p>
-
-                      <div className="bg-brand-500/10 border-l-4 border-brand-500 p-6 rounded-r-xl mb-8">
-                          <h3 className="flex items-center text-xl font-bold text-brand-300 mb-2">
-                              <span className="text-2xl mr-2">🎯</span> La mia missione?
-                          </h3>
-                          <p className="text-brand-100">
-                              Democratizzare la creazione web. Renderti autonomo. Darti una competenza ad alto valore che può cambiare concretamente la tua vita, sia che tu voglia risparmiare migliaia di euro per la tua attività, sia che tu voglia creare un business online da zero.
-                          </p>
-                      </div>
-
-                      <div className="mt-8 pt-8 border-t border-white/10">
-                          <p className="mb-4">
-                              Se sei arrivato fin qui, significa che sei pronto per il prossimo passo.
-                          </p>
-                          <p className="mb-4">
-                              Non serve esperienza. Non serve saper programmare.
-                              <br/>Serve solo la voglia di imparare e mettersi in gioco.
-                          </p>
-                          <p className="font-bold text-white text-xl">
-                              Ci vediamo dentro il corso! 👊
-                          </p>
-                          <p className="text-slate-500 italic mt-2">
-                              — Daniel
-                          </p>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </section>
-
       {/* SECTION - GUARANTEE */}
       <section className="py-24 bg-slate-950 border-t border-white/5">
           <div className="max-w-4xl mx-auto px-6 text-center">
@@ -1711,118 +1385,7 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
 
       {/* FOOTER */}
       {config.footer.is_visible && (
-        <footer className="bg-slate-950 border-t border-white/5 pt-16 pb-8 text-sm font-sans text-slate-400">
-            <div className="max-w-7xl mx-auto px-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-                    
-                    {/* Brand */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-2">
-                             <img 
-                                src="https://res.cloudinary.com/dhj0ztos6/image/upload/v1764867375/mwa_trasparente_thl6fk.png" 
-                                alt="MWA Logo" 
-                                style={{ 
-                                    height: `${config.footer.logo_height || 40}px`,
-                                    marginTop: `${config.footer.logo_margin_top || 0}px`,
-                                    marginBottom: `${config.footer.logo_margin_bottom || 0}px`,
-                                    marginLeft: `${config.footer.logo_margin_left || 0}px`,
-                                    marginRight: `${config.footer.logo_margin_right || 0}px`,
-                                }}
-                                className="w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
-                            />
-                        </div>
-                        <div>
-                            <p className="font-semibold text-white text-base">Piattaforma sviluppata da</p>
-                            <p className="text-brand-400 font-bold text-lg">Moise Web Srl</p>
-                        </div>
-                        <p className="text-xs text-slate-500 font-mono bg-white/5 inline-block px-2 py-1 rounded">P.IVA: RO50469659</p>
-                        
-                        <div className="flex gap-4 mt-4">
-                            {config.footer.social_links?.facebook && (
-                                <a href={config.footer.social_links.facebook} target="_blank" rel="noopener noreferrer" className="bg-white/5 p-2 rounded-full hover:bg-brand-600 hover:text-white transition-all"><Facebook className="h-4 w-4" /></a>
-                            )}
-                            {config.footer.social_links?.instagram && (
-                                <a href={config.footer.social_links.instagram} target="_blank" rel="noopener noreferrer" className="bg-white/5 p-2 rounded-full hover:bg-brand-600 hover:text-white transition-all"><Instagram className="h-4 w-4" /></a>
-                            )}
-                            {config.footer.social_links?.linkedin && (
-                                <a href={config.footer.social_links.linkedin} target="_blank" rel="noopener noreferrer" className="bg-white/5 p-2 rounded-full hover:bg-brand-600 hover:text-white transition-all"><Linkedin className="h-4 w-4" /></a>
-                            )}
-                            {config.footer.social_links?.youtube && (
-                                <a href={config.footer.social_links.youtube} target="_blank" rel="noopener noreferrer" className="bg-white/5 p-2 rounded-full hover:bg-brand-600 hover:text-white transition-all"><Youtube className="h-4 w-4" /></a>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Sedi Operative */}
-                    <div>
-                        <h3 className="font-bold text-white text-lg mb-6">Sedi Operative</h3>
-                        <ul className="space-y-6">
-                            <li className="flex items-start gap-3 group">
-                                <div className="bg-white/5 p-2 rounded-lg text-brand-400 group-hover:bg-brand-600 group-hover:text-white transition-colors">
-                                    <MapPin className="w-5 h-5 shrink-0" />
-                                </div>
-                                <div>
-                                    <span className="block font-bold text-slate-200 mb-1">1. Sede Legale</span>
-                                    <span className="text-slate-500">București (RO)</span>
-                                </div>
-                            </li>
-                            <li className="flex items-start gap-3 group">
-                                <div className="bg-white/5 p-2 rounded-lg text-brand-400 group-hover:bg-brand-600 group-hover:text-white transition-colors">
-                                    <MapPin className="w-5 h-5 shrink-0" />
-                                </div>
-                                <div>
-                                    <span className="block font-bold text-slate-200 mb-1">2. Sede Secondaria</span>
-                                    <span className="text-slate-500">Bergamo (BG)</span>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Contatti */}
-                    <div>
-                        <h3 className="font-bold text-white text-lg mb-6">Contatti</h3>
-                        <ul className="space-y-4">
-                            <li className="flex items-center gap-3">
-                                <Phone className="w-4 h-4 text-brand-400 shrink-0" />
-                                <a href="tel:+393473127082" className="hover:text-brand-400 transition-colors font-medium">+39 347 312 7082</a>
-                            </li>
-                            <li className="flex items-center gap-3">
-                                <Phone className="w-4 h-4 text-brand-400 shrink-0" />
-                                <a href="tel:+393772334192" className="hover:text-brand-400 transition-colors font-medium">+39 377 233 4192</a>
-                            </li>
-                            <li className="flex items-center gap-3 pt-2">
-                                <Mail className="w-4 h-4 text-brand-400 shrink-0" />
-                                <a href="mailto:info@mwacademy.eu" className="hover:text-brand-400 transition-colors break-all">info.moisewebaccademy@gmail.com</a>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Supporto */}
-                    <div>
-                        <h3 className="font-bold text-white text-lg mb-6">Link Utili</h3>
-                        <ul className="space-y-3">
-                            <li><a href="#" className="hover:text-brand-400 transition-colors">Tutti i Corsi</a></li>
-                            <li><a href="#" className="hover:text-brand-400 transition-colors">Chi Siamo</a></li>
-                            <li><a href="#" className="hover:text-brand-400 transition-colors">Privacy Policy</a></li>
-                            <li><a href="#" className="hover:text-brand-400 transition-colors">Termini & Condizioni</a></li>
-                            <li><a href="#" className="hover:text-brand-400 transition-colors">Cookie Policy</a></li>
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Bottom Bar */}
-                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-slate-600 text-xs">
-                        &copy; {new Date().getFullYear()} Moise Web Academy. Tutti i diritti riservati.
-                    </p>
-                    <div className="flex gap-4 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">
-                        <svg className="h-8" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M35 0H3C1.3 0 0 1.3 0 3V21C0 22.7 1.3 24 3 24H35C36.7 24 38 22.7 38 21V3C38 1.3 36.7 0 35 0Z" fill="#2563EB"/><path d="M12.5 10.5H16.5" stroke="white" strokeWidth="2"/><path d="M21.5 10.5H25.5" stroke="white" strokeWidth="2"/><circle cx="8" cy="12" r="3" fill="white" opacity="0.5"/><text x="14" y="16" fill="white" fontSize="8" fontWeight="bold">VISA</text></svg>
-                        <svg className="h-8" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M35 0H3C1.3 0 0 1.3 0 3V21C0 22.7 1.3 24 3 24H35C36.7 24 38 22.7 38 21V3C38 1.3 36.7 0 35 0Z" fill="#111"/><circle cx="13" cy="12" r="6" fill="#EB001B"/><circle cx="25" cy="12" r="6" fill="#F79E1B" fillOpacity="0.8"/></svg>
-                        <svg className="h-8" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M35 0H3C1.3 0 0 1.3 0 3V21C0 22.7 1.3 24 3 24H35C36.7 24 38 22.7 38 21V3C38 1.3 36.7 0 35 0Z" fill="white" stroke="#E5E7EB"/><path d="M10 7.5L14 7.5L12 17.5" fill="#253B80"/><path d="M22 7.5H18L16 17.5H19L22 7.5Z" fill="#179BD7"/><text x="24" y="16" fill="#253B80" fontSize="8" fontWeight="bold">PayPal</text></svg>
-                    </div>
-                </div>
-            </div>
-        </footer>
+        <Footer config={config.footer} />
       )}
     </div>
   );

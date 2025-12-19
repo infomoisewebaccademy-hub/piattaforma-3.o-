@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Course, Lesson } from '../types';
-import { Save, ArrowLeft, Trash, Plus, Image as ImageIcon, Layout, DollarSign, Video, PlayCircle, GripVertical, X, Book, Sparkles } from 'lucide-react';
+import { Save, ArrowLeft, Trash, Plus, Image as ImageIcon, Layout, DollarSign, Video, PlayCircle, GripVertical, X, Book, Sparkles, AlertCircle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface AdminEditCourseProps {
@@ -24,7 +24,8 @@ export const AdminEditCourse: React.FC<AdminEditCourseProps> = ({ courses, onSav
     features: [''],
     lessons: 0,
     duration: '',
-    lessons_content: []
+    lessons_content: [],
+    status: 'active'
   });
 
   // Stato per gestire errore caricamento immagine
@@ -41,7 +42,8 @@ export const AdminEditCourse: React.FC<AdminEditCourseProps> = ({ courses, onSav
         setFormData({
             ...courseToEdit,
             lessons_content: courseToEdit.lessons_content || [],
-            discounted_price: courseToEdit.discounted_price || 0
+            discounted_price: courseToEdit.discounted_price || 0,
+            status: courseToEdit.status || 'active'
         });
       }
     } else {
@@ -55,7 +57,8 @@ export const AdminEditCourse: React.FC<AdminEditCourseProps> = ({ courses, onSav
             features: [''],
             lessons: 0,
             duration: '',
-            lessons_content: []
+            lessons_content: [],
+            status: 'active'
         });
     }
   }, [id, courses, isNew]);
@@ -82,7 +85,8 @@ export const AdminEditCourse: React.FC<AdminEditCourseProps> = ({ courses, onSav
       id: isNew ? `course_${Date.now()}` : id,
       features: formData.features?.filter(f => f.trim() !== '') || [],
       lessons: finalLessonsCount, // Sincronizza il numero lezioni
-      discounted_price: formData.discounted_price || null // Se 0 salva come null
+      discounted_price: formData.discounted_price || null, // Se 0 salva come null
+      status: formData.status || 'active'
     } as Course;
     
     onSave(courseToSave);
@@ -324,6 +328,30 @@ export const AdminEditCourse: React.FC<AdminEditCourseProps> = ({ courses, onSav
             {/* Sidebar Settings Column */}
             <div className="lg:col-span-1 space-y-6">
                 
+                {/* Status & Availability */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <AlertCircle className="h-5 w-5 mr-2 text-brand-600" /> Disponibilità
+                    </h2>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Stato del Corso</label>
+                        <select 
+                            value={formData.status || 'active'}
+                            onChange={e => setFormData({...formData, status: e.target.value as any})}
+                            className="block w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-brand-500 outline-none bg-white font-semibold"
+                        >
+                            <option value="active">Attivo (Acquistabile)</option>
+                            <option value="full">Pieno (Niente più posti)</option>
+                            <option value="coming_soon">In Arrivo</option>
+                        </select>
+                        <p className="mt-2 text-xs text-gray-500">
+                            {formData.status === 'full' && "Il pulsante acquista sarà sostituito da 'Posti Esauriti'."}
+                            {formData.status === 'coming_soon' && "Il pulsante acquista sarà sostituito da 'In Arrivo'."}
+                            {formData.status === 'active' && "Il corso è normalmente acquistabile."}
+                        </p>
+                    </div>
+                </div>
+
                 {/* Price & Settings */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-40">
                     <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">

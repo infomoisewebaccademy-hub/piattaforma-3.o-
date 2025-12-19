@@ -6,13 +6,14 @@ import { Home } from './pages/Home';
 import { CoursesPage } from './pages/CoursesPage';
 import { CourseDetail } from './pages/CourseDetail';
 import { Dashboard } from './pages/Dashboard';
+import { CommunityChat } from './pages/CommunityChat';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminEditCourse } from './pages/AdminEditCourse';
 import { Cart } from './pages/Cart';
 import { Login } from './pages/Login';
 import { UpdatePassword } from './pages/UpdatePassword';
 import { PaymentSuccess } from './pages/PaymentSuccess';
-import { ComingSoon } from './pages/ComingSoon'; // NEW PAGE
+import { ComingSoon } from './pages/ComingSoon'; 
 import { UserProfile, Course, PlatformSettings } from './types';
 import { supabase, createCheckoutSession } from './services/supabase';
 import { CartProvider } from './contexts/CartContext';
@@ -69,10 +70,11 @@ const AppContent: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   
   const [settings, setSettings] = useState<PlatformSettings>({
       id: 1, logo_height: 64, logo_alignment: 'left', logo_margin_left: 0, 
-      home_hero_title: '', home_hero_subtitle: '', meta_pixel_id: '', font_family: 'Inter',
+      meta_pixel_id: '', font_family: 'Inter',
       is_pre_launch: false, pre_launch_date: '', pre_launch_config: undefined
   });
   
@@ -80,23 +82,45 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const firstLoad = useRef(true);
 
-  // Nascondi navbar in queste pagine O se siamo in Pre-Launch (e non siamo admin)
   const isPreLaunchActive = settings.is_pre_launch && !user?.is_admin;
-  
-  const hideNavbar = ['/login', '/update-password', '/payment-success', '/coming-soon'].includes(location.pathname) || isPreLaunchActive;
+  const hideNavbar = ['/update-password', '/payment-success', '/coming-soon'].includes(location.pathname) || isPreLaunchActive;
 
-  // --- PRE-LAUNCH PROTECTION LOGIC ---
+  // Realtime Notification Listener
+  useEffect(() => {
+    if (!user) return;
+
+    // Reset count when entering community page
+    if (location.pathname === '/community') {
+      setUnreadChatCount(0);
+    }
+
+    const channel = supabase
+      .channel('chat_notifications')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'community_messages' 
+      }, (payload) => {
+        // Increment only if not on the community page and message is from someone else
+        if (location.pathname !== '/community' && payload.new.user_id !== user.id) {
+          setUnreadChatCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, location.pathname]);
+
   useEffect(() => {
       if (!loading) {
           if (isPreLaunchActive) {
-              // Se Pre-Launch è attivo, blocca tutto tranne Login e ComingSoon
               if (location.pathname !== '/coming-soon' && location.pathname !== '/login') {
                   navigate('/coming-soon', { replace: true });
               }
           } else {
-              // Se Pre-Launch NON è attivo, ma siamo su ComingSoon...
               if (location.pathname === '/coming-soon') {
-                  // PERMETTI L'ACCESSO AGLI ADMIN (per l'anteprima), altrimenti redirect
                   if (!user?.is_admin) {
                        navigate('/', { replace: true });
                   }
@@ -105,8 +129,6 @@ const AppContent: React.FC = () => {
       }
   }, [settings.is_pre_launch, user, location.pathname, navigate, loading, isPreLaunchActive]);
 
-
-  // --- REDIRECT LOGIC ---
   useEffect(() => {
       const forceUpdate = localStorage.getItem('mwa_force_password_update');
       if (forceUpdate === 'true') {
@@ -121,7 +143,6 @@ const AppContent: React.FC = () => {
       }
   }, [navigate, user]);
 
-  // --- FONT & PIXEL ---
   useEffect(() => {
     if (settings.font_family) {
         const linkId = 'dynamic-font-link';
@@ -140,7 +161,6 @@ const AppContent: React.FC = () => {
   useEffect(() => { if (settings.meta_pixel_id) initMetaPixel(settings.meta_pixel_id); }, [settings.meta_pixel_id]);
   useEffect(() => { if (!firstLoad.current) trackPageView(); firstLoad.current = false; }, [location]);
 
-  // --- DATA FETCHING ---
   const fetchCourses = async () => {
     try {
       const { data } = await supabase.from('courses').select('*').order('title', { ascending: true });
@@ -176,7 +196,6 @@ const AppContent: React.FC = () => {
     } catch (error) { console.error("Error loading user data:", error); } finally { setLoading(false); }
   }, []);
 
-  // --- AUTH LISTENER ---
   useEffect(() => {
     let mounted = true;
     fetchCourses(); fetchSettings();
@@ -191,7 +210,6 @@ const AppContent: React.FC = () => {
     return () => { mounted = false; subscription.unsubscribe(); };
   }, [refreshUserData, navigate]);
 
-  const handleRegister = async (e: React.FormEvent) => { e.preventDefault(); alert("Per registrarti, acquista un corso. Riceverai le credenziali via email."); };
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); navigate('/'); };
 
   const handlePurchase = async (courseId: string) => {
@@ -227,18 +245,17 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/coming-soon" element={<ComingSoon launchDate={settings.pre_launch_date} config={settings.pre_launch_config} />} />
         
-        {/* Queste rotte saranno inaccessibili se isPreLaunchActive è true (gestito da useEffect sopra) */}
         <Route path="/" element={<Home courses={courses} onCourseSelect={(id) => navigate(`/course/${id}`)} user={user} landingConfig={settings.landing_page_config} />} />
         <Route path="/courses" element={<CoursesPage courses={courses} onCourseSelect={(id) => navigate(`/course/${id}`)} user={user} />} />
         <Route path="/cart" element={<Cart user={user} />} />
         <Route path="/course/:id" element={<CourseWrapper courses={courses} user={user} onPurchase={handlePurchase} isPurchasing={isPurchasing} />} />
         <Route path="/payment-success" element={<PaymentSuccess />} />
-        <Route path="/dashboard" element={user ? <Dashboard user={user} courses={courses} onRefresh={refreshUserData} /> : <Navigate to="/login" />} />
+        <Route path="/dashboard" element={user ? <Dashboard user={user} courses={courses} onRefresh={refreshUserData} unreadChatCount={unreadChatCount} /> : <Navigate to="/login" />} />
+        <Route path="/community" element={user ? <CommunityChat user={user} unreadChatCount={unreadChatCount} /> : <Navigate to="/login" />} />
         
-        {/* Rotte Admin / Auth sempre disponibili (ma protette da login) */}
         <Route path="/admin" element={user?.is_admin ? <AdminDashboard user={user} courses={courses} onDelete={handleDeleteCourse} onRefresh={refreshUserData} currentSettings={settings} onUpdateSettings={handleUpdateSettings} /> : <Navigate to="/" />} />
         <Route path="/admin/course/:id" element={user?.is_admin ? <AdminEditCourse courses={courses} onSave={handleSaveCourse} /> : <Navigate to="/" />} />
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login landingConfig={settings.landing_page_config} />} />
         <Route path="/update-password" element={<UpdatePassword />} />
         <Route path="/register" element={user ? <Navigate to="/dashboard" /> : (
              <div className="min-h-screen pt-32 flex justify-center bg-gray-50 px-4">

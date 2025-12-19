@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Course, Lesson, UserProfile } from '../types';
-import { Clock, Book, BarChart, Check, Lock, Play, PlayCircle, Sparkles, AlertCircle, ShoppingCart, Zap } from 'lucide-react';
+import { Clock, Book, BarChart, Check, Lock, Play, PlayCircle, Sparkles, AlertCircle, ShoppingCart, Zap, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { trackInitiateCheckout, trackAddToCart } from '../services/metaPixel';
+import { supabase } from '../services/supabase';
 
 interface CourseDetailProps {
   course: Course;
@@ -15,34 +17,75 @@ interface CourseDetailProps {
 
 export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, isPurchased, onBack, user }) => {
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
+  const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const { addToCart, isInCart } = useCart();
   const navigate = useNavigate();
 
-  // Se l'utente ha comprato il corso e clicca "Continua", mostra la prima lezione
+  // Carica progresso lezioni se acquistato
+  useEffect(() => {
+      if (isPurchased && user) {
+          const fetchProgress = async () => {
+              const { data } = await supabase
+                  .from('lesson_progress')
+                  .select('lesson_id')
+                  .eq('user_id', user.id)
+                  .eq('course_id', course.id)
+                  .eq('completed', true);
+              
+              if (data) {
+                  setCompletedLessons(data.map(p => p.lesson_id));
+              }
+          };
+          fetchProgress();
+      }
+  }, [isPurchased, user, course.id]);
+
+  const markLessonAsCompleted = async (lessonId: string) => {
+      if (!user || !isPurchased) return;
+      
+      try {
+          const { error } = await supabase
+              .from('lesson_progress')
+              .upsert({
+                  user_id: user.id,
+                  course_id: course.id,
+                  lesson_id: lessonId,
+                  completed: true,
+                  updated_at: new Date().toISOString()
+              }, { onConflict: 'user_id,lesson_id' });
+
+          if (error) throw error;
+
+          setCompletedLessons(prev => prev.includes(lessonId) ? prev : [...prev, lessonId]);
+      } catch (err) {
+          console.error("Errore salvataggio progresso:", err);
+      }
+  };
+
   const startLearning = () => {
     if (course.lessons_content && course.lessons_content.length > 0) {
         setActiveLesson(course.lessons_content[0]);
-        // Scroll to player
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
         alert("Questo corso non ha ancora lezioni caricate dall'insegnante.");
     }
   };
 
-  // LOGICA SCONTO FEDELTÀ
   const hasPreviousPurchases = user && user.purchased_courses.length > 0;
   const isDiscountAvailable = hasPreviousPurchases && course.discounted_price && course.discounted_price > 0 && !isPurchased;
   
   const finalPrice = isDiscountAvailable ? course.discounted_price! : course.price;
   const inCart = isInCart(course.id);
 
-  // GESTORE ACQUISTO IMMEDIATO (Con Tracking)
   const handleBuyNow = () => {
-      // 1. Traccia l'evento pixel per inizio checkout
+      if (course.status && course.status !== 'active') return;
       trackInitiateCheckout([course.id], finalPrice);
-      // 2. Prosegui col pagamento
       onPurchase();
   };
+
+  const isFull = course.status === 'full';
+  const isComingSoon = course.status === 'coming_soon';
+  const isPurchasable = !isFull && !isComingSoon;
 
   return (
     <div className="pt-24 min-h-screen bg-gray-50 pb-20">
@@ -53,10 +96,8 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, 
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {/* Left Content */}
             <div className="lg:col-span-2 space-y-8">
                 
-                {/* VIDEO PLAYER AREA */}
                 {isPurchased && activeLesson ? (
                     <div className="bg-black rounded-2xl overflow-hidden shadow-2xl aspect-video relative group">
                         {activeLesson.videoUrl ? (
@@ -68,7 +109,12 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, 
                                     allowFullScreen
                                 ></iframe>
                              ) : (
-                                <video src={activeLesson.videoUrl} controls className="w-full h-full" />
+                                <video 
+                                    src={activeLesson.videoUrl} 
+                                    controls 
+                                    className="w-full h-full" 
+                                    onEnded={() => markLessonAsCompleted(activeLesson.id)}
+                                />
                              )
                         ) : (
                             <div className="flex items-center justify-center h-full text-white/50">
@@ -78,21 +124,40 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, 
                     </div>
                 ) : (
                     <div>
-                        <span className="text-brand-600 font-bold tracking-wider text-sm uppercase mb-2 block">{course.level}</span>
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="text-brand-600 font-bold tracking-wider text-sm uppercase block">{course.level}</span>
+                            {isFull && <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border border-red-200">Posti Esauriti</span>}
+                            {isComingSoon && <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border border-blue-200">In Arrivo</span>}
+                        </div>
                         <h1 className="text-4xl font-bold text-gray-900 mb-4">{course.title}</h1>
                         <p className="text-xl text-gray-600 leading-relaxed whitespace-pre-wrap">{course.description}</p>
                     </div>
                 )}
 
-                {/* Lesson Info if playing */}
                 {isPurchased && activeLesson && (
-                    <div className="bg-white p-6 rounded-xl border border-gray-100">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">{activeLesson.title}</h2>
-                        <p className="text-gray-600 whitespace-pre-wrap">{activeLesson.description}</p>
+                    <div className="bg-white p-6 rounded-xl border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="flex-1">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{activeLesson.title}</h2>
+                            <p className="text-gray-600 whitespace-pre-wrap">{activeLesson.description}</p>
+                        </div>
+                        <button 
+                            onClick={() => markLessonAsCompleted(activeLesson.id)}
+                            disabled={completedLessons.includes(activeLesson.id)}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm ${
+                                completedLessons.includes(activeLesson.id)
+                                ? 'bg-green-50 text-green-600 border border-green-100'
+                                : 'bg-brand-600 text-white hover:bg-brand-700 shadow-brand-500/20'
+                            }`}
+                        >
+                            {completedLessons.includes(activeLesson.id) ? (
+                                <><CheckCircle2 className="h-5 w-5" /> Completata</>
+                            ) : (
+                                <>Segna come completata</>
+                            )}
+                        </button>
                     </div>
                 )}
 
-                {/* Meta Stats */}
                 {!activeLesson && (
                     <div className="flex flex-wrap gap-6 py-6 border-y border-gray-200">
                         <div className="flex items-center text-gray-700">
@@ -110,46 +175,55 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, 
                     </div>
                 )}
 
-                {/* Syllabus */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                     <h2 className="text-2xl font-bold mb-6">Programma del Corso</h2>
                     <div className="space-y-4">
                         {(!course.lessons_content || course.lessons_content.length === 0) ? (
                             <div className="text-center text-gray-400 py-4">Lezioni in arrivo...</div>
                         ) : (
-                            course.lessons_content.map((lesson, idx) => (
-                                <div 
-                                    key={idx} 
-                                    onClick={() => isPurchased ? setActiveLesson(lesson) : null}
-                                    className={`border rounded-lg p-4 transition-all cursor-pointer ${
-                                        activeLesson?.id === lesson.id 
-                                        ? 'bg-brand-50 border-brand-200 ring-1 ring-brand-200' 
-                                        : 'border-gray-100 hover:bg-gray-50'
-                                    } ${!isPurchased && 'opacity-70'}`}
-                                >
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center">
-                                            <div className={`p-2 rounded mr-4 font-bold text-sm ${activeLesson?.id === lesson.id ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                {(idx + 1).toString().padStart(2, '0')}
+                            course.lessons_content.map((lesson, idx) => {
+                                const isCompleted = completedLessons.includes(lesson.id);
+                                return (
+                                    <div 
+                                        key={idx} 
+                                        onClick={() => isPurchased ? setActiveLesson(lesson) : null}
+                                        className={`border rounded-lg p-4 transition-all cursor-pointer ${
+                                            activeLesson?.id === lesson.id 
+                                            ? 'bg-brand-50 border-brand-200 ring-1 ring-brand-200' 
+                                            : 'border-gray-100 hover:bg-gray-50'
+                                        } ${!isPurchased && 'opacity-70'}`}
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center">
+                                                <div className={`p-2 rounded mr-4 font-bold text-sm ${
+                                                    isCompleted ? 'bg-green-100 text-green-700' : 
+                                                    activeLesson?.id === lesson.id ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500'
+                                                }`}>
+                                                    {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : (idx + 1).toString().padStart(2, '0')}
+                                                </div>
+                                                <div>
+                                                    <h4 className={`font-bold ${activeLesson?.id === lesson.id ? 'text-brand-900' : 'text-gray-900'} ${isCompleted ? 'text-green-800' : ''}`}>
+                                                        {lesson.title}
+                                                    </h4>
+                                                    {lesson.description && <p className="text-xs text-gray-400 line-clamp-1">{lesson.description}</p>}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h4 className={`font-bold ${activeLesson?.id === lesson.id ? 'text-brand-900' : 'text-gray-900'}`}>{lesson.title}</h4>
-                                                {lesson.description && <p className="text-xs text-gray-400 line-clamp-1">{lesson.description}</p>}
-                                            </div>
+                                            {isPurchased ? (
+                                                <div className="flex items-center gap-3">
+                                                    {isCompleted && <span className="text-[10px] font-bold text-green-600 uppercase tracking-tighter bg-green-50 px-2 py-0.5 rounded border border-green-100">Fatto</span>}
+                                                    <PlayCircle className={`h-5 w-5 ${activeLesson?.id === lesson.id ? 'text-brand-600' : 'text-gray-400'}`} />
+                                                </div>
+                                            ) : (
+                                                <Lock className="h-4 w-4 text-gray-400" />
+                                            )}
                                         </div>
-                                        {isPurchased ? (
-                                            <PlayCircle className={`h-5 w-5 ${activeLesson?.id === lesson.id ? 'text-brand-600' : 'text-gray-400'}`} />
-                                        ) : (
-                                            <Lock className="h-4 w-4 text-gray-400" />
-                                        )}
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 </div>
 
-                {/* Curriculum Features Preview (Only if not playing) */}
                 {!activeLesson && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                         <h2 className="text-2xl font-bold mb-6">Cosa Imparerai</h2>
@@ -165,11 +239,10 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, 
                 )}
             </div>
 
-            {/* Right Sticky Sidebar */}
             <div className="lg:col-span-1">
                 <div className="sticky top-28 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
                     {!activeLesson && (
-                        <img src={course.image} alt={course.title} className="w-full h-48 object-cover" />
+                        <img src={course.image} alt={course.title} className={`w-full h-48 object-cover ${!isPurchasable && !isPurchased ? 'grayscale-[0.5]' : ''}`} />
                     )}
                     <div className="p-8">
                         {!isPurchased && (
@@ -208,40 +281,52 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, 
                             )
                         ) : (
                             <div className="space-y-3">
-                                
-                                <button 
-                                    onClick={handleBuyNow}
-                                    className="w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-brand-700 transition-all shadow-lg shadow-brand-500/30 mb-2 flex items-center justify-center"
-                                >
-                                    <Zap className="mr-2 h-5 w-5 fill-current" /> Acquista Subito
-                                </button>
+                                {isPurchasable ? (
+                                    <>
+                                        <button 
+                                            onClick={handleBuyNow}
+                                            className="w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-brand-700 transition-all shadow-lg shadow-brand-500/30 mb-2 flex items-center justify-center"
+                                        >
+                                            <Zap className="mr-2 h-5 w-5 fill-current" /> Acquista Subito
+                                        </button>
 
-                                <button 
-                                    onClick={() => {
-                                        if (inCart) {
-                                            navigate('/cart');
-                                        } else {
-                                            // La funzione addToCart del context traccia già 'AddToCart', ma lo aggiungiamo esplicitamente per sicurezza se necessario
-                                            // trackAddToCart([course.id], finalPrice); // Ridondante se il Context lo fa già, ma utile se vuoi forzare.
-                                            addToCart(course);
-                                        }
-                                    }}
-                                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center border-2 ${
-                                        inCart 
-                                        ? 'bg-green-50 border-green-200 text-green-600' 
-                                        : 'bg-white border-brand-600 text-brand-600 hover:bg-brand-50'
-                                    }`}
-                                >
-                                    {inCart ? (
-                                        <>Nel Carrello <Check className="ml-2 h-5 w-5" /></>
-                                    ) : (
-                                        <>Aggiungi al Carrello <ShoppingCart className="ml-2 h-5 w-5" /></>
-                                    )}
-                                </button>
+                                        <button 
+                                            onClick={() => {
+                                                if (inCart) navigate('/cart');
+                                                else addToCart(course);
+                                            }}
+                                            className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center border-2 ${
+                                                inCart 
+                                                ? 'bg-green-50 border-green-200 text-green-600' 
+                                                : 'bg-white border-brand-600 text-brand-600 hover:bg-brand-50'
+                                            }`}
+                                        >
+                                            {inCart ? (
+                                                <>Nel Carrello <Check className="ml-2 h-5 w-5" /></>
+                                            ) : (
+                                                <>Aggiungi al Carrello <ShoppingCart className="ml-2 h-5 w-5" /></>
+                                            )}
+                                        </button>
+                                    </>
+                                ) : isFull ? (
+                                    <div className="bg-red-50 border border-red-100 p-6 rounded-xl text-center">
+                                        <Lock className="h-10 w-10 text-red-400 mx-auto mb-3" />
+                                        <h4 className="text-red-800 font-bold text-lg mb-1">Posti Esauriti</h4>
+                                        <p className="text-red-600 text-xs">Questo corso ha raggiunto il limite massimo di studenti per questo mese.</p>
+                                    </div>
+                                ) : (
+                                    <div className="bg-blue-50 border border-blue-100 p-6 rounded-xl text-center">
+                                        <Clock className="h-10 w-10 text-blue-400 mx-auto mb-3" />
+                                        <h4 className="text-blue-800 font-bold text-lg mb-1">In Arrivo</h4>
+                                        <p className="text-blue-600 text-xs">Stiamo ultimando le registrazioni. Sarà disponibile a breve!</p>
+                                    </div>
+                                )}
 
-                                <p className="text-xs text-gray-500 text-center mt-2 leading-tight">
-                                    Non serve registrarsi ora. Riceverai le credenziali d'accesso via email subito dopo l'acquisto.
-                                </p>
+                                {isPurchasable && (
+                                    <p className="text-xs text-gray-500 text-center mt-2 leading-tight">
+                                        Non serve registrarsi ora. Riceverai le credenziali d'accesso via email subito dopo l'acquisto.
+                                    </p>
+                                )}
                             </div>
                         )}
                         
@@ -251,11 +336,11 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({ course, onPurchase, 
                                  <span className="font-bold text-gray-900">{course.lessons_content?.length || 0}</span>
                              </div>
                              <div className="flex justify-between text-sm">
-                                 <span className="text-gray-600">Accesso illimitato</span>
-                                 <span className="font-bold text-gray-900">Sì</span>
+                                 <span className="text-gray-600">Completate</span>
+                                 <span className="font-bold text-green-600">{completedLessons.length} / {course.lessons_content?.length || 0}</span>
                              </div>
                              <div className="flex justify-between text-sm">
-                                 <span className="text-gray-600">Certificato</span>
+                                 <span className="text-gray-600">Accesso illimitato</span>
                                  <span className="font-bold text-gray-900">Sì</span>
                              </div>
                         </div>
