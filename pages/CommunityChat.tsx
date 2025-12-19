@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, ChatMessage } from '../types';
 import { Send, Users, ShieldCheck, Loader2, Sparkles, Trash2, AlertTriangle } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 
@@ -18,6 +19,7 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ user, unreadChatCo
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -25,7 +27,6 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ user, unreadChatCo
   };
 
   useEffect(() => {
-    // 1. Caricamento messaggi iniziali
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from('community_messages')
@@ -41,7 +42,6 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ user, unreadChatCo
 
     fetchMessages();
 
-    // 2. Sottoscrizione Realtime
     const channel = supabase
       .channel('public:community_messages')
       .on('postgres_changes', { 
@@ -54,10 +54,9 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ user, unreadChatCo
       })
       .on('postgres_changes', {
           event: 'DELETE',
-          schema: 'public',
+          schema: 'public', 
           table: 'community_messages'
       }, () => {
-          // Se vengono eliminati messaggi (es. reset), ricarichiamo la lista
           fetchMessages();
       })
       .subscribe();
@@ -94,20 +93,16 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ user, unreadChatCo
   };
 
   const handleClearChat = async () => {
-      if (!user.is_admin) return;
-      if (!confirm("⚠️ SEI SICURO? Questa azione cancellerà DEFINITIVAMENTE tutti i messaggi della community. Non è possibile annullare.")) return;
-
       setIsClearing(true);
       try {
-          // Eliminiamo tutti i messaggi (usando una condizione sempre vera come id non nullo)
           const { error } = await supabase
               .from('community_messages')
               .delete()
-              .neq('id', '00000000-0000-0000-0000-000000000000'); // Elimina tutto
+              .neq('id', '00000000-0000-0000-0000-000000000000');
 
           if (error) throw error;
           setMessages([]);
-          alert("Chat ripulita con successo.");
+          setShowClearModal(false);
       } catch (err: any) {
           alert("Errore durante il reset: " + err.message);
       } finally {
@@ -139,12 +134,11 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ user, unreadChatCo
             <div className="flex items-center gap-3">
                 {user.is_admin && (
                     <button 
-                        onClick={handleClearChat}
+                        onClick={() => setShowClearModal(true)}
                         disabled={isClearing}
                         className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight hover:bg-red-100 transition-all border border-red-100 disabled:opacity-50"
-                        title="Resetta tutta la chat"
                     >
-                        {isClearing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                        <Trash2 className="h-3 w-3" />
                         Reset Chat
                     </button>
                 )}
@@ -217,6 +211,19 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ user, unreadChatCo
                 Comportati con rispetto verso gli altri studenti.
             </p>
         </div>
+
+        {/* Custom Confirmation Modal */}
+        <ConfirmModal 
+            isOpen={showClearModal}
+            onClose={() => setShowClearModal(false)}
+            onConfirm={handleClearChat}
+            title="Svuota Chat Community"
+            message="Sei sicuro di voler eliminare DEFINITIVAMENTE tutti i messaggi della community? Questa azione non può essere annullata."
+            confirmLabel="Sì, Svuota Tutto"
+            cancelLabel="No, Mantieni"
+            isDestructive={true}
+            isLoading={isClearing}
+        />
 
       </main>
     </div>
