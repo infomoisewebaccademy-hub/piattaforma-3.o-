@@ -287,6 +287,11 @@ const FAQ_ITEMS = [
     }
 ];
 
+// --- OTTIMIZZAZIONE VIDEO ---
+const OPTIMIZED_VIDEO_URL = "https://res.cloudinary.com/dhj0ztos6/video/upload/q_auto:good,f_auto,w_1920/v1765326450/home_2_bbhedx";
+const POSTER_IMAGE_URL = "https://res.cloudinary.com/dhj0ztos6/video/upload/f_jpg,q_auto:low,w_1200/v1765326450/home_2_bbhedx.jpg";
+// -------------------------
+
 export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landingConfig }) => {
   const navigate = useNavigate();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -450,13 +455,24 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
 
       {/* --- HERO SECTION --- */}
       <div className="relative overflow-hidden">
-          {/* Hero Video Background */}
+          {/* Hero Video Background - OTTIMIZZATO */}
           <div className="absolute inset-0 z-0">
+             {/* Mobile-first: Immagine statica di fallback per performance ottimali */}
+             <div 
+                className="block lg:hidden w-full h-full bg-cover bg-center opacity-30"
+                style={{ backgroundImage: `url('${POSTER_IMAGE_URL}')` }}
+             ></div>
+
+             {/* Desktop: Video ottimizzato con anteprima (poster) */}
              <video 
-                src="https://res.cloudinary.com/dhj0ztos6/video/upload/v1765326450/home_2_bbhedx.webm"
+                poster={POSTER_IMAGE_URL}
                 autoPlay loop muted playsInline 
-                className="w-full h-full object-cover opacity-30"
-             />
+                className="hidden lg:block w-full h-full object-cover opacity-30"
+             >
+                <source src={`${OPTIMIZED_VIDEO_URL}.webm`} type="video/webm" />
+                <source src={`${OPTIMIZED_VIDEO_URL}.mp4`} type="video/mp4" />
+                Il tuo browser non supporta il tag video.
+             </video>
              <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950"></div>
           </div>
 
