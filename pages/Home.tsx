@@ -291,9 +291,13 @@ const FAQ_ITEMS = [
 const CLOUDINARY_BASE_URL = "https://res.cloudinary.com/dhj0ztos6/video/upload";
 
 const createOptimizedVideo = (videoId: string) => {
+    // Ottimizzazione aggressiva e responsiva per TUTTI i video, per garantire performance su mobile e qualità su desktop.
+    // 'w_auto,dpr_auto' adatta la risoluzione al dispositivo. 'q_auto:good' mantiene una buona qualità. 'vc_auto' ottimizza il codec.
+    const optimizationParams = 'w_auto,dpr_auto,c_limit,q_auto:good,f_auto,vc_auto';
+    
     return {
-        optimized: `${CLOUDINARY_BASE_URL}/q_auto:good,f_auto/${videoId}`,
-        poster: `${CLOUDINARY_BASE_URL}/f_jpg,q_auto:low/${videoId}.jpg`
+        optimized: `${CLOUDINARY_BASE_URL}/${optimizationParams}/${videoId}`,
+        poster: `${CLOUDINARY_BASE_URL}/w_auto,dpr_auto,c_limit,f_jpg,q_auto:low/${videoId}.jpg`
     };
 };
 
@@ -326,16 +330,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
              lowerUrl.includes('.mp4') || 
              lowerUrl.includes('.webm') || 
              lowerUrl.includes('.mov');
-  };
-  
-  // Helper per generare URL ottimizzati al volo per i video dalla config
-  const getOptimizedConfigVideo = (url: string) => {
-      if (!url.includes('cloudinary')) return { optimized: url, poster: '' };
-      const parts = url.split('/upload/');
-      if (parts.length < 2) return { optimized: url, poster: '' };
-      
-      const videoId = parts[1].replace('.webm','').replace('.mp4','');
-      return createOptimizedVideo(videoId);
   };
 
   // Merge config with defaults
@@ -410,6 +404,15 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
     return merged;
   }, [landingConfig]);
 
+  const aboutVideo = useMemo(() => {
+    if(!config.about_section.image_url.includes('cloudinary')) return { optimized: config.about_section.image_url, poster: '' };
+    const parts = config.about_section.image_url.split('/upload/');
+    if(parts.length < 2) return { optimized: config.about_section.image_url, poster: '' };
+    const videoId = parts[1].replace(/\.\w+$/, '');
+    return createOptimizedVideo(videoId);
+  }, [config.about_section.image_url]);
+
+
   const handleNavigateToCourses = () => {
     navigate('/courses');
   };
@@ -420,8 +423,6 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
       setIsReviewModalOpen(false);
       setReviewForm({ name: '', text: '', rating: 5 });
   };
-  
-  const aboutVideo = useMemo(() => getOptimizedConfigVideo(config.about_section.image_url), [config.about_section.image_url]);
 
   const isSticky = config.announcement_bar.is_visible && config.announcement_bar.is_sticky;
   const heroPaddingClass = (config.announcement_bar.is_visible && !isSticky) 
@@ -478,22 +479,16 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
 
       {/* --- HERO SECTION --- */}
       <div className="relative overflow-hidden">
-          {/* Hero Video Background - OTTIMIZZATO */}
+          {/* Hero Video Background - OTTIMIZZATO per tutti i dispositivi */}
           <div className="absolute inset-0 z-0">
-             {/* Mobile-first: Immagine statica di fallback per performance ottimali */}
-             <div 
-                className="block lg:hidden w-full h-full bg-cover bg-center opacity-30"
-                style={{ backgroundImage: `url('${HERO_VIDEO.poster}')` }}
-             ></div>
-
-             {/* Desktop: Video ottimizzato con anteprima (poster) */}
              <video 
                 poster={HERO_VIDEO.poster}
                 autoPlay loop muted playsInline 
-                className="hidden lg:block w-full h-full object-cover opacity-30"
+                className="w-full h-full object-cover opacity-30"
              >
                 <source src={`${HERO_VIDEO.optimized}.webm`} type="video/webm" />
                 <source src={`${HERO_VIDEO.optimized}.mp4`} type="video/mp4" />
+                Il tuo browser non supporta il tag video.
              </video>
              <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950"></div>
           </div>
@@ -596,14 +591,11 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
 
                           {/* Right Video Visual - OTTIMIZZATO */}
                           <div className="relative rounded-3xl overflow-hidden lg:h-[750px] md:h-[600px] h-[450px] w-full shadow-2xl ring-1 ring-white/10 group">
-                               {/* Mobile Fallback */}
-                               <div className="block lg:hidden w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('${AI_ERA_VIDEO.poster}')` }}></div>
-                               {/* Desktop Video */}
                                <video 
                                   poster={AI_ERA_VIDEO.poster}
                                   loading="lazy"
                                   autoPlay loop muted playsInline 
-                                  className="hidden lg:block w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700"
+                                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700"
                                >
                                   <source src={`${AI_ERA_VIDEO.optimized}.webm`} type="video/webm" />
                                   <source src={`${AI_ERA_VIDEO.optimized}.mp4`} type="video/mp4" />
@@ -723,18 +715,15 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                         <div className="relative rounded-3xl overflow-hidden h-[500px] w-full shadow-2xl ring-1 ring-white/10 group">
                             {/* VIDEO/IMAGE CHECK & OTTIMIZZAZIONE */}
                             {isVideo(config.about_section.image_url) ? (
-                                <>
-                                    <div className="block lg:hidden w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('${aboutVideo.poster}')` }}></div>
-                                    <video 
-                                        poster={aboutVideo.poster}
-                                        loading="lazy"
-                                        autoPlay loop muted playsInline 
-                                        className="hidden lg:block w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700"
-                                    >
-                                       <source src={`${aboutVideo.optimized}.webm`} type="video/webm" />
-                                       <source src={`${aboutVideo.optimized}.mp4`} type="video/mp4" />
-                                    </video>
-                                </>
+                                <video 
+                                    poster={aboutVideo.poster}
+                                    loading="lazy"
+                                    autoPlay loop muted playsInline 
+                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700"
+                                >
+                                   <source src={`${aboutVideo.optimized}.webm`} type="video/webm" />
+                                   <source src={`${aboutVideo.optimized}.mp4`} type="video/mp4" />
+                                </video>
                              ) : (
                                 <img 
                                     src={config.about_section.image_url} 
@@ -907,12 +896,11 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
                       {/* Right Video area - OTTIMIZZATO */}
                       <div className="lg:col-span-7">
                           <div className="relative h-full min-h-[400px] rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl">
-                               <div className="block lg:hidden w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('${HOW_IT_WORKS_VIDEO.poster}')` }}></div>
                                <video 
                                   poster={HOW_IT_WORKS_VIDEO.poster}
                                   loading="lazy"
                                   autoPlay loop muted playsInline 
-                                  className="hidden lg:block absolute inset-0 w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity duration-700"
+                                  className="absolute inset-0 w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity duration-700"
                                >
                                    <source src={`${HOW_IT_WORKS_VIDEO.optimized}.webm`} type="video/webm" />
                                    <source src={`${HOW_IT_WORKS_VIDEO.optimized}.mp4`} type="video/mp4" />
@@ -1011,12 +999,11 @@ export const Home: React.FC<HomeProps> = ({ courses, onCourseSelect, user, landi
 
                   {/* Right Video Visual - OTTIMIZZATO */}
                   <div className="lg:col-span-5 h-full min-h-[500px] relative rounded-3xl overflow-hidden ring-1 ring-white/10 shadow-2xl">
-                        <div className="block lg:hidden w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('${TARGET_SECTION_VIDEO.poster}')` }}></div>
                         <video 
                             poster={TARGET_SECTION_VIDEO.poster}
                             loading="lazy"
                             autoPlay loop muted playsInline 
-                            className="hidden lg:block absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full object-cover"
                         >
                            <source src={`${TARGET_SECTION_VIDEO.optimized}.webm`} type="video/webm" />
                            <source src={`${TARGET_SECTION_VIDEO.optimized}.mp4`} type="video/mp4" />
