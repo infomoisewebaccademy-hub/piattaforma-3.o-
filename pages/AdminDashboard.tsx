@@ -5,8 +5,8 @@ import { Plus, Edit2, Trash2, Search, DollarSign, BookOpen, Clock, Eye, Lock, Un
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { GoogleGenAI } from "@google/genai";
-import { ConfirmModal } from '../components/ConfirmModal';
 
+// Fix: Added missing usp_section and cta_section to satisfy LandingPageConfig interface
 const DEFAULT_LANDING_CONFIG: LandingPageConfig = {
   announcement_bar: {
     text: '🚀 Novità: Accedi subito ai corsi e inizia a creare progetti reali.',
@@ -93,6 +93,7 @@ const DEFAULT_LANDING_CONFIG: LandingPageConfig = {
     is_visible: true,
     reviews: []
   },
+  // Fix: Added missing usp_section to default config
   usp_section: {
     title: 'Perché siamo diversi dagli altri corsi',
     is_visible: true,
@@ -103,6 +104,7 @@ const DEFAULT_LANDING_CONFIG: LandingPageConfig = {
       { title: 'Prezzi onesti', desc: 'Ogni corso lo pagate singolarmente. Niente abbonamenti.' }
     ]
   },
+  // Fix: Added missing cta_section to default config
   cta_section: {
     title: 'Iniziate a costruire qualcosa di reale.',
     subtitle: 'Usate l’AI a costo zero, create progetti veri e portate le vostre competenze al livello successivo.',
@@ -149,10 +151,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
   const [activeTab, setActiveTab] = useState<'courses' | 'general' | 'landing_manual' | 'landing_ai' | 'launch' | 'community'>('courses');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  
-  // Stati per Modali di Conferma
-  const [deleteCourseId, setDeleteCourseId] = useState<string | null>(null);
-  const [showClearChatModal, setShowClearChatModal] = useState(false);
   const [isClearingChat, setIsClearingChat] = useState(false);
   
   const [localSettings, setLocalSettings] = useState<PlatformSettings>(currentSettings);
@@ -177,33 +175,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
             pre_launch_config: preLaunchConfig
         };
         await onUpdateSettings(finalSettings);
-        // Utilizziamo un semplice alert per i salvataggi riusciti, ma potremmo implementare un toast in futuro
         alert("Impostazioni salvate con successo!"); 
     } catch (error: any) { alert("Errore: " + error.message); } 
     finally { setIsSavingSettings(false); }
-  };
-
-  const confirmDeleteCourse = () => {
-      if (deleteCourseId) {
-          onDelete(deleteCourseId);
-          setDeleteCourseId(null);
-      }
-  };
-
-  const handleClearCommunityChat = async () => {
-      setIsClearingChat(true);
-      try {
-          const { error } = await supabase
-              .from('community_messages')
-              .delete()
-              .neq('id', '00000000-0000-0000-0000-000000000000');
-          if (error) throw error;
-          setShowClearChatModal(false);
-      } catch (err: any) {
-          alert("Errore reset chat: " + err.message);
-      } finally {
-          setIsClearingChat(false);
-      }
   };
 
   const handleReviewUpdate = (idx: number, field: string, value: string) => {
@@ -232,6 +206,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
       } catch (err: any) { alert("Errore: " + err.message); }
   };
 
+  const handleClearCommunityChat = async () => {
+      if (!confirm("⚠️ ATTENZIONE: Questa azione eliminerà TUTTI i messaggi della community chat per sempre. Confermi?")) return;
+      setIsClearingChat(true);
+      try {
+          const { error } = await supabase
+              .from('community_messages')
+              .delete()
+              .neq('id', '00000000-0000-0000-0000-000000000000');
+          if (error) throw error;
+          alert("Chat ripulita correttamente!");
+      } catch (err: any) {
+          alert("Errore reset chat: " + err.message);
+      } finally {
+          setIsClearingChat(false);
+      }
+  };
+
   const handleAiGeneration = async () => {
     if (!aiPrompt) return;
     setIsAiLoading(true);
@@ -243,6 +234,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
         });
         const jsonStr = result.text.replace(/```json/g, '').replace(/```/g, '').trim();
         setLandingConfig(JSON.parse(jsonStr));
+        alert("✨ Configurazione generata!");
     } catch (error: any) { alert("Errore AI: " + error.message); } finally { setIsAiLoading(false); }
   };
 
@@ -255,7 +247,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-gray-900">Gestione Piattaforma</h1>
-                <p className="text-gray-500 mt-1">Academy Control Center.</p>
+                <p className="text-gray-500 mt-1">Controlla ogni aspetto della tua Academy.</p>
             </div>
             <div className="flex gap-3">
                 <button onClick={() => setShowHelp(!showHelp)} className="bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-bold hover:bg-gray-300 transition-all flex items-center">
@@ -303,6 +295,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
         {/* CONTENT */}
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             
+            {/* COURSES TAB */}
             {activeTab === 'courses' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {courses.map(course => (
@@ -315,7 +308,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
                                 <h3 className="font-bold text-lg mb-4 line-clamp-1">{course.title}</h3>
                                 <div className="mt-auto flex gap-2">
                                     <button onClick={() => navigate(`/admin/course/${course.id}`)} className="flex-1 bg-brand-50 text-brand-700 py-2 rounded-lg font-bold hover:bg-brand-100 flex items-center justify-center"><Edit2 className="h-4 w-4 mr-2"/> Edit</button>
-                                    <button onClick={() => setDeleteCourseId(course.id)} className="bg-red-50 text-red-600 p-2 rounded-lg hover:bg-red-100"><Trash2 className="h-5 w-5"/></button>
+                                    <button onClick={() => onDelete(course.id)} className="bg-red-50 text-red-600 p-2 rounded-lg hover:bg-red-100"><Trash2 className="h-5 w-5"/></button>
                                 </div>
                             </div>
                         </div>
@@ -323,6 +316,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
                 </div>
             )}
 
+            {/* COMMUNITY TAB */}
             {activeTab === 'community' && (
                 <div className="space-y-6">
                     <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
@@ -331,100 +325,241 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
                             <div className="space-y-4">
                                 <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
                                     <h4 className="font-bold text-red-800 mb-2 flex items-center"><Trash2 className="h-4 w-4 mr-2"/> Reset Messaggi</h4>
-                                    <p className="text-sm text-red-600 mb-6">Svuota completamente la chat della community per liberare spazio o ricominciare da zero.</p>
+                                    <p className="text-sm text-red-600 mb-6">Questa funzione permette di svuotare completamente la chat della community per liberare spazio o ricominciare da zero.</p>
                                     <button 
-                                        onClick={() => setShowClearChatModal(true)}
+                                        onClick={handleClearCommunityChat}
                                         disabled={isClearingChat}
                                         className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20 disabled:opacity-50"
                                     >
-                                        <Trash2 className="h-5 w-5" />
+                                        {isClearingChat ? <Loader className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
                                         Svuota Chat Ora
                                     </button>
                                 </div>
+                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                    <h4 className="font-bold text-gray-700 mb-2 flex items-center"><AlertTriangle className="h-4 w-4 mr-2"/> Moderazione</h4>
+                                    <p className="text-sm text-gray-500">Puoi monitorare i messaggi in tempo reale direttamente dalla pagina <button onClick={() => navigate('/community')} className="text-brand-600 font-bold hover:underline">Community Chat</button>.</p>
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-center justify-center bg-gray-50 rounded-2xl p-10 border border-gray-100">
+                                <Users className="h-20 w-20 text-gray-200 mb-4" />
+                                <p className="text-center text-gray-400 text-sm italic">Gestisci qui la tua community di studenti.</p>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Altre TAB rimosse per brevità nel blocco modifiche, assumiamo restino invariate tranne dove specificato */}
+            {/* PRE-LANCIO TAB */}
             {activeTab === 'launch' && (
-                <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-                     <h3 className="text-xl font-bold mb-6 flex items-center"><Rocket className="mr-2 text-red-600"/> Gestione Pagina "Coming Soon"</h3>
-                     <div className="grid md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Stato Modalità Lancio</label>
-                                <button onClick={() => setLocalSettings({...localSettings, is_pre_launch: !localSettings.is_pre_launch})} className={`w-full py-4 rounded-xl font-black text-lg transition-all flex items-center justify-center gap-3 ${localSettings.is_pre_launch ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'bg-green-600 text-white shadow-lg shadow-green-900/20'}`}>
-                                    {localSettings.is_pre_launch ? <><Lock className="h-6 w-6"/> PRE-LANCIO ATTIVO</> : <><Unlock className="h-6 w-6"/> SITO PUBBLICO</>}
-                                </button>
+                <div className="space-y-6">
+                    <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                        <h3 className="text-xl font-bold mb-6 flex items-center"><Rocket className="mr-2 text-red-600"/> Gestione Pagina "Coming Soon"</h3>
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Stato Modalità Lancio</label>
+                                    <button onClick={() => setLocalSettings({...localSettings, is_pre_launch: !localSettings.is_pre_launch})} className={`w-full py-4 rounded-xl font-black text-lg transition-all flex items-center justify-center gap-3 ${localSettings.is_pre_launch ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'bg-green-600 text-white shadow-lg shadow-green-900/20'}`}>
+                                        {localSettings.is_pre_launch ? <><Lock className="h-6 w-6"/> PRE-LANCIO ATTIVO</> : <><Unlock className="h-6 w-6"/> SITO PUBBLICO</>}
+                                    </button>
+                                    <p className="text-xs text-gray-400 mt-2 italic">Se attivo, gli utenti non admin vedranno solo la pagina Coming Soon.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Data del Lancio (Countdown)</label>
+                                    <input type="datetime-local" value={localSettings.pre_launch_date || ''} onChange={(e) => setLocalSettings({...localSettings, pre_launch_date: e.target.value})} className="w-full border-gray-300 rounded-xl p-3 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                                </div>
+                                <div className="pt-4">
+                                    <button onClick={handleExportCSV} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-black flex items-center justify-center gap-2 transition-all">
+                                        <Download className="h-5 w-5" /> Esporta Lista d'Attesa (CSV)
+                                    </button>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Data del Lancio</label>
-                                <input type="datetime-local" value={localSettings.pre_launch_date || ''} onChange={(e) => setLocalSettings({...localSettings, pre_launch_date: e.target.value})} className="w-full border-gray-300 rounded-xl p-3 focus:ring-red-500 focus:border-red-500" />
-                            </div>
-                            <div className="pt-4">
-                                <button onClick={handleExportCSV} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-black flex items-center justify-center gap-2">
-                                    <Download className="h-5 w-5" /> Esporta CSV
-                                </button>
+                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 space-y-4">
+                                <h4 className="font-bold text-gray-900 border-b pb-2">Contenuti Pagina Lancio</h4>
+                                <input type="text" value={preLaunchConfig.headline_solid} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, headline_solid: e.target.value})} className="w-full border p-2 rounded text-sm mb-2" placeholder="Titolo Fisso" />
+                                <input type="text" value={preLaunchConfig.headline_gradient} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, headline_gradient: e.target.value})} className="w-full border p-2 rounded text-sm mb-2" placeholder="Titolo Gradiente" />
+                                <textarea rows={3} value={preLaunchConfig.description} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, description: e.target.value})} className="w-full border p-2 rounded text-sm" placeholder="Descrizione"></textarea>
+                                <input type="text" value={preLaunchConfig.cta_text} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, cta_text: e.target.value})} className="w-full border p-2 rounded text-sm" placeholder="Testo Bottone" />
                             </div>
                         </div>
-                     </div>
+                    </div>
                 </div>
             )}
 
-            {/* General Settings */}
+            {/* GENERAL SETTINGS TAB */}
             {activeTab === 'general' && (
                 <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm space-y-8">
                     <h3 className="text-xl font-bold mb-6 flex items-center"><Settings className="mr-2 text-brand-600"/> Impostazioni Globali</h3>
                     <div className="grid md:grid-cols-2 gap-12">
+                        {/* Logo & Branding */}
                         <div className="space-y-6">
-                            <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest flex items-center"><Image className="h-4 w-4 mr-2"/> Branding</h4>
+                            <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest flex items-center"><Image className="h-4 w-4 mr-2"/> Branding & Logo</h4>
                             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                <label className="block text-sm font-bold mb-4">Altezza Logo (px): {localSettings.logo_height}</label>
-                                <input type="range" min="20" max="150" value={localSettings.logo_height} onChange={(e) => setLocalSettings({...localSettings, logo_height: parseInt(e.target.value)})} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600 mb-6" />
                                 
-                                <label className="block text-sm font-bold mb-2">Allineamento Logo</label>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setLocalSettings({...localSettings, logo_alignment: 'left'})} className={`flex-1 py-2 rounded-lg border font-bold ${localSettings.logo_alignment === 'left' ? 'bg-brand-600 text-white' : 'bg-white text-gray-500'}`}>Sinistra</button>
-                                    <button onClick={() => setLocalSettings({...localSettings, logo_alignment: 'center'})} className={`flex-1 py-2 rounded-lg border font-bold ${localSettings.logo_alignment === 'center' ? 'bg-brand-600 text-white' : 'bg-white text-gray-500'}`}>Centro</button>
+                                <div className="mb-6">
+                                    <label className="block text-sm font-bold mb-2 text-gray-700">URL Logo</label>
+                                    <input 
+                                        type="text" 
+                                        value={localSettings.logo_url || ''} 
+                                        onChange={(e) => setLocalSettings({...localSettings, logo_url: e.target.value})}
+                                        className="w-full border-gray-300 rounded-xl py-3 px-4 focus:ring-brand-500 focus:border-brand-500 shadow-sm font-mono text-sm"
+                                        placeholder="https://.../logo.png"
+                                    />
                                 </div>
+
+                                <div className="mb-8">
+                                    <label className="block text-sm font-bold mb-2 text-gray-500">Anteprima</label>
+                                    <div className="bg-white rounded-xl p-8 border border-gray-200 shadow-inner flex items-center justify-center min-h-[200px] overflow-hidden">
+                                        <img 
+                                            src={localSettings.logo_url || 'https://res.cloudinary.com/dhj0ztos6/image/upload/v1764867375/mwa_trasparente_thl6fk.png'} 
+                                            alt="Anteprima Logo" 
+                                            style={{ 
+                                                height: `${localSettings.logo_height}px`,
+                                                transform: `translateX(${localSettings.logo_offset_x || 0}px) translateY(${localSettings.logo_offset_y || 0}px)`
+                                            }}
+                                            className="transition-all duration-300 max-w-[200px] object-contain"
+                                            key={localSettings.logo_url} // Forza il re-render se l'URL cambia
+                                            onError={(e) => { e.currentTarget.src = 'https://res.cloudinary.com/dhj0ztos6/image/upload/v1764867375/mwa_trasparente_thl6fk.png'; }}
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2">Altezza (px): {localSettings.logo_height}</label>
+                                        <input 
+                                            type="range" 
+                                            min="20" max="150" 
+                                            value={localSettings.logo_height || 20} 
+                                            onChange={(e) => setLocalSettings({...localSettings, logo_height: parseInt(e.target.value, 10) || 20})} 
+                                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600" 
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-bold mb-1">Spostamento X (px)</label>
+                                            <input 
+                                                type="number" 
+                                                min="-1000" max="1000"
+                                                value={localSettings.logo_offset_x || 0} 
+                                                onChange={(e) => setLocalSettings({...localSettings, logo_offset_x: parseInt(e.target.value) || 0})}
+                                                className="w-full border-gray-300 rounded-lg py-2 px-3 focus:ring-brand-500 focus:border-brand-500 shadow-sm font-mono"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold mb-1">Spostamento Y (px)</label>
+                                            <input 
+                                                type="number" 
+                                                min="-1000" max="1000"
+                                                value={localSettings.logo_offset_y || 0} 
+                                                onChange={(e) => setLocalSettings({...localSettings, logo_offset_y: parseInt(e.target.value) || 0})}
+                                                className="w-full border-gray-300 rounded-lg py-2 px-3 focus:ring-brand-500 focus:border-brand-500 shadow-sm font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6">
+                                    <label className="block text-sm font-bold mb-2">Font di Sistema</label>
+                                    <select value={localSettings.font_family} onChange={(e) => setLocalSettings({...localSettings, font_family: e.target.value})} className="w-full border-gray-300 rounded-xl p-3 focus:ring-brand-500 shadow-sm bg-white font-medium">
+                                        {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Marketing & Scripts */}
+                        <div className="space-y-6">
+                            <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest flex items-center"><Activity className="h-4 w-4 mr-2"/> Marketing & Tracking</h4>
+                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                <label className="block text-sm font-bold mb-2">Meta Pixel ID</label>
+                                <div className="relative">
+                                    <Activity className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+                                    <input type="text" value={localSettings.meta_pixel_id || ''} onChange={(e) => setLocalSettings({...localSettings, meta_pixel_id: e.target.value})} className="w-full border-gray-300 rounded-xl py-3 pl-10 pr-4 focus:ring-brand-500 shadow-sm font-mono text-sm" placeholder="Es: 123456789012345" />
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-2 italic leading-tight">Inserisci solo l'ID numerico. Il pixel traccia automaticamente PageView, AddToCart e Purchase.</p>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* MANUAL LANDING EDITOR */}
+            {activeTab === 'landing_manual' && (
+                <div className="space-y-8 pb-20">
+                    <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                        <h3 className="text-xl font-bold mb-6 flex items-center"><Megaphone className="mr-2 text-brand-600"/> Barra Annuncio</h3>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <input type="text" value={landingConfig.announcement_bar.text} onChange={(e) => setLandingConfig({...landingConfig, announcement_bar: {...landingConfig.announcement_bar, text: e.target.value}})} className="w-full border p-3 rounded-xl" placeholder="Testo avviso..." />
+                            <div className="flex gap-4 items-center">
+                                <input type="color" value={landingConfig.announcement_bar.bg_color} onChange={(e) => setLandingConfig({...landingConfig, announcement_bar: {...landingConfig.announcement_bar, bg_color: e.target.value}})} className="h-10 w-20 rounded" />
+                                <label className="text-sm font-bold">Colore Sfondo</label>
+                                <input type="checkbox" checked={landingConfig.announcement_bar.is_visible} onChange={(e) => setLandingConfig({...landingConfig, announcement_bar: {...landingConfig.announcement_bar, is_visible: e.target.checked}})} className="h-6 w-6 accent-brand-600" />
+                                <label className="text-sm font-bold">Visibile</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                        <h3 className="text-xl font-bold mb-6 flex items-center"><Target className="mr-2 text-brand-600"/> Hero Section</h3>
+                        <div className="space-y-4">
+                            <input type="text" value={landingConfig.hero.title} onChange={(e) => setLandingConfig({...landingConfig, hero: {...landingConfig.hero, title: e.target.value}})} className="w-full border p-3 rounded-xl font-bold text-lg" placeholder="Titolo Principale" />
+                            <input type="text" value={landingConfig.hero.subtitle} onChange={(e) => setLandingConfig({...landingConfig, hero: {...landingConfig.hero, subtitle: e.target.value}})} className="w-full border p-3 rounded-xl" placeholder="Sottotitolo" />
+                            <textarea rows={4} value={landingConfig.hero.text} onChange={(e) => setLandingConfig({...landingConfig, hero: {...landingConfig.hero, text: e.target.value}})} className="w-full border p-3 rounded-xl" placeholder="Testo descrittivo"></textarea>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                        <h3 className="text-xl font-bold mb-6 flex items-center"><MessageCircle className="mr-2 text-brand-600"/> Testimonianze</h3>
+                        <div className="space-y-4">
+                            {(landingConfig.testimonials_section.reviews || []).map((review, idx) => (
+                                <div key={idx} className="flex flex-col gap-3 border p-6 rounded-2xl bg-gray-50 relative group">
+                                    <button onClick={() => {
+                                        const newReviews = landingConfig.testimonials_section.reviews.filter((_, i) => i !== idx);
+                                        setLandingConfig({...landingConfig, testimonials_section: {...landingConfig.testimonials_section, reviews: newReviews}});
+                                    }} className="absolute top-4 right-4 text-red-400 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="h-5 w-5"/></button>
+                                    <div className="flex gap-4">
+                                        <input type="text" value={review.name} onChange={(e) => handleReviewUpdate(idx, 'name', e.target.value)} className="w-1/2 border p-2 rounded-lg font-bold" placeholder="Nome" />
+                                        <input type="text" value={review.role} onChange={(e) => handleReviewUpdate(idx, 'role', e.target.value)} className="w-1/2 border p-2 rounded-lg" placeholder="Ruolo" />
+                                    </div>
+                                    <textarea rows={2} value={review.text} onChange={(e) => handleReviewUpdate(idx, 'text', e.target.value)} className="w-full border p-2 rounded-lg" placeholder="Recensione"></textarea>
+                                </div>
+                            ))}
+                            <button onClick={() => {
+                                const newReviews = [...(landingConfig.testimonials_section.reviews || []), { name: 'Nuovo Studente', role: 'Studente MWA', text: 'Esperienza fantastica!' }];
+                                setLandingConfig({...landingConfig, testimonials_section: {...landingConfig.testimonials_section, reviews: newReviews}});
+                            }} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-2xl text-gray-500 font-bold hover:bg-gray-100 transition-all">+ Aggiungi Recensione</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* AI MAGIC EDITOR */}
+            {activeTab === 'landing_ai' && (
+                <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-xl overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl"></div>
+                    <div className="relative z-10 text-center max-w-2xl mx-auto py-10">
+                        <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-brand-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-purple-500/30">
+                            <Sparkles className="h-10 w-10 text-white" />
+                        </div>
+                        <h2 className="text-3xl font-black text-gray-900 mb-4">MWA Magic AI Editor</h2>
+                        <p className="text-gray-500 mb-10 text-lg">Descrivi come vuoi che sia la tua Home Page. L'AI riscriverà testi, benefici e recensioni per te.</p>
+                        
+                        <div className="relative group">
+                            <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-3xl p-6 md:p-8 text-lg focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 outline-none transition-all shadow-inner min-h-[200px]" placeholder="Es: Voglio una landing page per un corso di cucina che promette di farti diventare chef in 10 giorni..."></textarea>
+                            <div className="absolute bottom-4 right-4 flex gap-2">
+                                <button onClick={handleAiGeneration} disabled={isAiLoading || !aiPrompt} className="bg-purple-600 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-purple-700 shadow-xl shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all transform hover:scale-105">
+                                    {isAiLoading ? <Loader className="h-6 w-6 animate-spin mr-3"/> : <Wand2 className="h-6 w-6 mr-3"/>} Genera Ora
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
 
-        {/* MODALI DI CONFERMA PERSONALIZZATI */}
-        
-        {/* Modale Eliminazione Corso */}
-        <ConfirmModal 
-            isOpen={!!deleteCourseId}
-            onClose={() => setDeleteCourseId(null)}
-            onConfirm={confirmDeleteCourse}
-            title="Elimina Corso"
-            message="Sei sicuro di voler eliminare questo corso? L'azione è irreversibile e gli studenti non potranno più acquistarlo."
-            confirmLabel="Sì, Elimina"
-            cancelLabel="Annulla"
-            isDestructive={true}
-        />
-
-        {/* Modale Reset Chat (Tab Community) */}
-        <ConfirmModal 
-            isOpen={showClearChatModal}
-            onClose={() => setShowClearChatModal(false)}
-            onConfirm={handleClearCommunityChat}
-            title="Reset Community Chat"
-            message="Questa operazione cancellerà TUTTI i messaggi presenti nella community chat. Vuoi procedere?"
-            confirmLabel="Sì, Svuota Chat"
-            cancelLabel="Annulla"
-            isDestructive={true}
-            isLoading={isClearingChat}
-        />
-
         {/* SAVE BUTTON FLOATING */}
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="fixed bottom-6 right-6 z-50 flex gap-4">
              <button onClick={handleSaveSettings} disabled={isSavingSettings} className="px-10 py-5 bg-brand-600 text-white rounded-full font-black hover:bg-brand-700 shadow-2xl shadow-brand-500/50 flex items-center text-xl transform hover:scale-110 transition-all disabled:opacity-70">
                 {isSavingSettings ? <Loader className="h-6 w-6 animate-spin mr-3"/> : <Settings className="mr-3 h-6 w-6" />} Salva Tutto
             </button>

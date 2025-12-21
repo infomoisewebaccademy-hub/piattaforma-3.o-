@@ -182,9 +182,10 @@ export interface LandingPageConfig {
 
 export interface PlatformSettings {
   id: number;
+  logo_url?: string;
   logo_height: number;
-  logo_alignment?: 'left' | 'center';
-  logo_margin_left?: number;
+  logo_offset_x?: number;
+  logo_offset_y?: number;
   meta_pixel_id?: string;
   font_family?: string;
   is_pre_launch?: boolean;

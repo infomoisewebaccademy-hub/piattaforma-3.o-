@@ -73,7 +73,7 @@ const AppContent: React.FC = () => {
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   
   const [settings, setSettings] = useState<PlatformSettings>({
-      id: 1, logo_height: 64, logo_alignment: 'left', logo_margin_left: 0, 
+      id: 1, logo_url: '', logo_height: 64, logo_offset_x: 0, logo_offset_y: 0,
       meta_pixel_id: '', font_family: 'Inter',
       is_pre_launch: false, pre_launch_date: '', pre_launch_config: undefined
   });
@@ -170,13 +170,37 @@ const AppContent: React.FC = () => {
   const fetchSettings = async () => {
     try {
       const { data } = await supabase.from('platform_settings').select('*').eq('id', 1).single();
-      if (data) setSettings(prev => ({ ...prev, ...data }));
+      if (data) {
+          const newSettings = {
+              ...settings, // Start with defaults from initial state
+              ...data,     // Overwrite with DB data
+              // Ensure required numbers are not null/undefined to prevent component errors
+              logo_height: data.logo_height ?? 64,
+              logo_offset_x: data.logo_offset_x ?? 0,
+              logo_offset_y: data.logo_offset_y ?? 0,
+          };
+          setSettings(newSettings);
+      }
     } catch (err) { }
   };
+  
   const handleUpdateSettings = async (newSettings: PlatformSettings) => {
-    setSettings(newSettings); 
-    const { error } = await supabase.from('platform_settings').upsert(newSettings);
-    if (error) throw error;
+    // Rendiamo la funzione più robusta assicurando che l'ID sia sempre presente per l'upsert.
+    const settingsToSave = {
+      ...newSettings,
+      id: 1, // La nostra riga di impostazioni ha sempre ID 1
+    };
+    
+    setSettings(settingsToSave);
+
+    const { error } = await supabase
+        .from('platform_settings')
+        .upsert(settingsToSave, { onConflict: 'id' });
+
+    if (error) {
+        console.error("Errore salvataggio impostazioni:", error);
+        throw error;
+    }
   };
 
   const refreshUserData = useCallback(async () => {
@@ -240,7 +264,15 @@ const AppContent: React.FC = () => {
   return (
     <>
       {!hideNavbar && (
-        <Navbar user={user} onLogout={handleLogout} onNavigate={navigate} logoSize={settings.logo_height} logoAlignment={settings.logo_alignment || 'left'} logoMarginLeft={settings.logo_margin_left || 0} />
+        <Navbar 
+          user={user} 
+          onLogout={handleLogout} 
+          onNavigate={navigate} 
+          logoUrl={settings.logo_url} 
+          logoSize={settings.logo_height} 
+          logoOffsetX={settings.logo_offset_x || 0}
+          logoOffsetY={settings.logo_offset_y || 0}
+        />
       )}
       <Routes>
         <Route path="/coming-soon" element={<ComingSoon launchDate={settings.pre_launch_date} config={settings.pre_launch_config} />} />
