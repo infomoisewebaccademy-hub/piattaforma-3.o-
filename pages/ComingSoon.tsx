@@ -10,6 +10,21 @@ interface ComingSoonProps {
     config?: PreLaunchConfig;
 }
 
+// Helper per convertire HEX in RGBA per le trasparenze
+const hexToRgba = (hex: string, alpha: number): string => {
+    if (!hex || !/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) return '';
+    let c = hex.substring(1).split('');
+    if (c.length === 3) {
+        c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+    }
+    const num = parseInt(c.join(''), 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+
 // Configurazione di Default
 const DEFAULT_CONFIG: PreLaunchConfig = {
     headline_solid: "CREA SITI E APP",
@@ -40,7 +55,15 @@ const DEFAULT_CONFIG: PreLaunchConfig = {
     success_priority_title: "Sei il numero #{position} in lista!",
     success_priority_subtitle: "Hai bloccato ufficialmente il tuo posto prioritario.",
     success_standard_title: "Sei in lista d'attesa standard.",
-    success_standard_subtitle: "I posti promozionali sono finiti, ma ti avviseremo appena apriamo!"
+    success_standard_subtitle: "I posti promozionali sono finiti, ma ti avviseremo appena apriamo!",
+    bg_color_main: '#020617',
+    text_color_body: '#94a3b8',
+    accent_color: '#facc15',
+    error_color: '#ef4444',
+    success_color: '#22c55e',
+    container_bg_color: '#1e293b',
+    container_border_color: '#334155',
+    input_bg_color: '#020617'
 };
 
 const MAX_SPOTS = 25; // Numero massimo posti prioritari
@@ -148,14 +171,14 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate: initialLaunc
     const isSoldOut = spotsTaken >= MAX_SPOTS;
 
     return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden font-sans p-4" style={{ backgroundColor: text.bg_color_main }}>
             
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full blur-[120px] pointer-events-none opacity-20" style={{ backgroundColor: text.gradient_start }}></div>
             <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full blur-[120px] pointer-events-none opacity-10" style={{ backgroundColor: text.gradient_end }}></div>
 
             <div className="relative z-10 max-w-4xl w-full text-center">
                 
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900 border border-white/10 text-white/70 font-bold text-xs uppercase tracking-[0.2em] mb-8 animate-pulse shadow-[0_0_20px_rgba(255,255,255,0.05)]">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/20 border border-white/10 text-white/70 font-bold text-xs uppercase tracking-[0.2em] mb-8 animate-pulse shadow-[0_0_20px_rgba(255,255,255,0.05)]">
                     <Lock className="h-3 w-3" /> {text.admin_login_badge_text}
                 </div>
 
@@ -164,92 +187,94 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate: initialLaunc
                     <span className="text-transparent bg-clip-text" style={{ backgroundImage: `linear-gradient(to right, ${text.gradient_start}, ${text.gradient_end})` }}>{displayGradient}</span>
                 </h1>
 
-                <p className="text-slate-400 text-lg md:text-2xl max-w-2xl mx-auto mb-12 leading-relaxed whitespace-pre-wrap">
+                <p className="text-lg md:text-2xl max-w-2xl mx-auto mb-12 leading-relaxed whitespace-pre-wrap" style={{ color: text.text_color_body }}>
                     {text.description} <br/>
                     <span className="text-white font-bold">{text.subheadline}</span>
                 </p>
 
                 <div className="flex flex-row justify-center gap-2 md:gap-8 max-w-3xl mx-auto mb-12 md:mb-16">
                     {[{ label: 'Giorni', value: timeLeft.days }, { label: 'Ore', value: timeLeft.hours }, { label: 'Minuti', value: timeLeft.minutes }, { label: 'Secondi', value: timeLeft.seconds }].map((item, idx) => (
-                        <div key={idx} className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-2 md:p-6 rounded-xl md:rounded-2xl flex flex-col items-center shadow-2xl min-w-[70px] md:min-w-[120px]">
+                        <div key={idx} className="backdrop-blur-md border p-2 md:p-6 rounded-xl md:rounded-2xl flex flex-col items-center shadow-2xl min-w-[70px] md:min-w-[120px]" style={{ backgroundColor: hexToRgba(text.container_bg_color, 0.5), borderColor: text.container_border_color }}>
                             <span className="text-2xl md:text-6xl font-black text-white font-mono">{String(item.value).padStart(2, '0')}</span>
-                            <span className="text-[10px] md:text-xs text-slate-500 uppercase tracking-widest mt-1 md:mt-2">{item.label}</span>
+                            <span className="text-[10px] md:text-xs uppercase tracking-widest mt-1 md:mt-2" style={{color: text.text_color_body}}>{item.label}</span>
                         </div>
                     ))}
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 md:p-8 rounded-3xl border border-slate-700 shadow-2xl max-w-xl mx-auto relative overflow-hidden group text-left md:text-center">
-                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-400/20 rounded-full blur-2xl group-hover:bg-yellow-400/30 transition-all"></div>
+                <div className="p-6 md:p-8 rounded-3xl border shadow-2xl max-w-xl mx-auto relative overflow-hidden group text-left md:text-center" style={{ background: text.container_bg_color, borderColor: text.container_border_color }}>
+                    <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl group-hover:opacity-60 transition-all opacity-30" style={{backgroundColor: text.accent_color}}></div>
                     
                     {!isSuccess ? (
                         <>
-                            <div className="flex items-center justify-start md:justify-center gap-2 text-yellow-400 font-bold text-sm uppercase tracking-widest mb-2">
+                            <div className="flex items-center justify-start md:justify-center gap-2 font-bold text-sm uppercase tracking-widest mb-2" style={{color: text.accent_color}}>
                                 <Zap className="h-4 w-4 fill-current" /> {text.offer_badge}
                             </div>
                             <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">{text.offer_title}</h3>
                             
                             <div className="mb-6">
                                 <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                                    <span className={isSoldOut ? "text-red-400" : "text-green-400"}>
+                                    <span style={{ color: isSoldOut ? text.error_color : text.success_color }}>
                                         {isSoldOut ? text.spots_soldout_text : text.spots_remaining_text.replace('{spots}', String(spotsRemaining))}
                                     </span>
-                                    <span className="text-slate-500">{text.spots_taken_text.replace('{taken}', String(spotsTaken)).replace('{max}', String(MAX_SPOTS))}</span>
+                                    <span style={{color: text.text_color_body}}>{text.spots_taken_text.replace('{taken}', String(spotsTaken)).replace('{max}', String(MAX_SPOTS))}</span>
                                 </div>
-                                <div className="h-3 bg-slate-950 rounded-full overflow-hidden border border-white/10 relative">
-                                    <div className={`h-full transition-all duration-1000 ease-out ${isSoldOut ? 'bg-red-500' : 'bg-yellow-400 shadow-[0_0_15px_#facc15]'}`} style={{ width: `${progressPercent}%` }}></div>
+                                <div className="h-3 rounded-full overflow-hidden border relative" style={{backgroundColor: hexToRgba(text.container_border_color, 0.3), borderColor: hexToRgba(text.container_border_color, 0.5)}}>
+                                    <div className={`h-full transition-all duration-1000 ease-out`} style={{ width: `${progressPercent}%`, backgroundColor: isSoldOut ? text.error_color : text.accent_color }}></div>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-2 text-left md:text-center">
+                                <p className="text-xs mt-2 text-left md:text-center" style={{color: text.text_color_body}}>
                                     {isSoldOut ? text.soldout_cta_text : text.available_cta_text}
                                 </p>
                             </div>
 
-                            <p className="text-slate-300 mb-6 text-sm whitespace-pre-wrap">{text.offer_text}</p>
+                            <p className="mb-6 text-sm whitespace-pre-wrap" style={{color: text.text_color_body}}>{text.offer_text}</p>
 
                             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-5 w-5 text-slate-500" /></div>
-                                    <input type="text" required placeholder={text.form_name_placeholder} value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-4 pl-10 pr-4 text-white placeholder-slate-600 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all" />
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-5 w-5" style={{color: text.text_color_body}} /></div>
+                                    <input type="text" required placeholder={text.form_name_placeholder} value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full border rounded-xl py-4 pl-10 pr-4 placeholder-opacity-50 focus:ring-1 outline-none transition-all" style={{backgroundColor: text.input_bg_color, borderColor: text.container_border_color, color: text.title_color, '::placeholder': {color: text.text_color_body}}} />
                                 </div>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-500" /></div>
-                                    <input type="email" required placeholder={text.form_email_placeholder} value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-4 pl-10 pr-4 text-white placeholder-slate-600 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all" />
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="h-5 w-5" style={{color: text.text_color_body}} /></div>
+                                    <input type="email" required placeholder={text.form_email_placeholder} value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded-xl py-4 pl-10 pr-4 placeholder-opacity-50 focus:ring-1 outline-none transition-all" style={{backgroundColor: text.input_bg_color, borderColor: text.container_border_color, color: text.title_color, '::placeholder': {color: text.text_color_body}}} />
                                 </div>
                                 <button type="submit" disabled={isSubmitting} style={{ backgroundColor: text.button_color }} className="w-full text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-wide mt-2">
                                     {isSubmitting ? text.submitting_button_text : text.cta_text}
                                 </button>
                             </form>
-                            <p className="text-[10px] text-slate-600 mt-4 text-center">{text.form_disclaimer_text}</p>
+                            <p className="text-[10px] mt-4 text-center" style={{color: text.text_color_body}}>{text.form_disclaimer_text}</p>
                         </>
                     ) : (
                         <div className="py-8 text-center animate-in zoom-in duration-300">
-                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle className="h-10 w-10 text-green-500" /></div>
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6" style={{backgroundColor: hexToRgba(text.success_color, 0.2)}}>
+                                <CheckCircle className="h-10 w-10" style={{color: text.success_color}} />
+                            </div>
                             <h3 className="text-2xl font-bold text-white mb-2">{text.success_title}</h3>
                             
                             {userPosition && userPosition <= MAX_SPOTS ? (
-                                <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl mb-4 inline-block">
-                                    <p className="text-yellow-300 font-bold flex items-center justify-center gap-2"><TrendingUp className="h-5 w-5" />{text.success_priority_title.replace('{position}', String(userPosition))}</p>
-                                    <p className="text-slate-400 text-sm mt-1">{text.success_priority_subtitle}</p>
+                                <div className="border p-4 rounded-xl mb-4 inline-block" style={{backgroundColor: hexToRgba(text.accent_color, 0.1), borderColor: hexToRgba(text.accent_color, 0.3)}}>
+                                    <p className="font-bold flex items-center justify-center gap-2" style={{color: text.accent_color}}><TrendingUp className="h-5 w-5" />{text.success_priority_title.replace('{position}', String(userPosition))}</p>
+                                    <p className="text-sm mt-1" style={{color: text.text_color_body}}>{text.success_priority_subtitle}</p>
                                 </div>
                             ) : (
-                                <div className="bg-slate-700/30 p-4 rounded-xl mb-4 inline-block">
-                                    <p className="text-slate-300 font-bold flex items-center justify-center gap-2"><AlertTriangle className="h-5 w-5 text-slate-400" />{text.success_standard_title}</p>
-                                    <p className="text-slate-500 text-sm mt-1">{text.success_standard_subtitle}</p>
+                                <div className="p-4 rounded-xl mb-4 inline-block" style={{backgroundColor: hexToRgba(text.text_color_body, 0.2)}}>
+                                    <p className="font-bold flex items-center justify-center gap-2" style={{color: text.text_color_body}}><AlertTriangle className="h-5 w-5" />{text.success_standard_title}</p>
+                                    <p className="text-sm mt-1" style={{color: text.text_color_body}}>{text.success_standard_subtitle}</p>
                                 </div>
                             )}
-                            <p className="text-slate-400 max-w-sm mx-auto whitespace-pre-wrap">{text.success_text}</p>
+                            <p className="max-w-sm mx-auto whitespace-pre-wrap" style={{color: text.text_color_body}}>{text.success_text}</p>
                         </div>
                     )}
                 </div>
             </div>
 
             <div className="absolute bottom-4 right-4 z-50">
-                <button onClick={() => navigate('/login')} className="flex items-center gap-2 p-2 text-xs font-bold uppercase tracking-widest text-slate-500 opacity-10 hover:opacity-100 hover:text-white transition-all duration-300" title="Area Staff">
+                <button onClick={() => navigate('/login')} className="flex items-center gap-2 p-2 text-xs font-bold uppercase tracking-widest opacity-10 hover:opacity-100 transition-all duration-300" title="Area Staff" style={{color: text.text_color_body}}>
                     <Key className="h-3 w-3" /> {text.admin_login_text}
                 </button>
             </div>
             
             <div className="absolute bottom-4 w-full text-center pointer-events-none opacity-30">
-                 <div className="text-slate-600 text-[10px]">&copy; {new Date().getFullYear()} Moise Web Academy</div>
+                 <div className="text-[10px]" style={{color: text.text_color_body}}>&copy; {new Date().getFullYear()} Moise Web Academy</div>
             </div>
         </div>
     );

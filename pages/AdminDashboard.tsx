@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Course, UserProfile, PlatformSettings, LandingPageConfig, PreLaunchConfig } from '../types';
 import { Plus, Edit2, Trash2, Search, DollarSign, BookOpen, Clock, Eye, Lock, Unlock, Loader, Settings, Image, LayoutTemplate, Activity, HelpCircle, Terminal, AlignLeft, AlignCenter, MoveHorizontal, Sparkles, Wand2, X, MessageCircle, Megaphone, Target, ListOrdered, Book, Pin, Type, ExternalLink, Rocket, Calendar, Palette, Download, Facebook, Instagram, Linkedin, Youtube, Move, Quote, MoveVertical, AlignVerticalJustifyCenter, Maximize, Check, Columns, ArrowRightLeft, BrainCircuit, GitMerge, UserCheck, XCircle, Video, AlertTriangle, TrendingUp, Users } from 'lucide-react';
@@ -148,7 +149,15 @@ const DEFAULT_PRE_LAUNCH_CONFIG: PreLaunchConfig = {
     success_priority_title: "Sei il numero #{position} in lista!",
     success_priority_subtitle: "Hai bloccato ufficialmente il tuo posto prioritario.",
     success_standard_title: "Sei in lista d'attesa standard.",
-    success_standard_subtitle: "I posti promozionali sono finiti, ma ti avviseremo appena apriamo!"
+    success_standard_subtitle: "I posti promozionali sono finiti, ma ti avviseremo appena apriamo!",
+    bg_color_main: '#020617',
+    text_color_body: '#94a3b8',
+    accent_color: '#facc15',
+    error_color: '#ef4444',
+    success_color: '#22c55e',
+    container_bg_color: '#1e293b',
+    container_border_color: '#334155',
+    input_bg_color: '#020617'
 };
 
 interface AdminDashboardProps {
@@ -159,6 +168,16 @@ interface AdminDashboardProps {
   currentSettings: PlatformSettings;
   onUpdateSettings: (newSettings: PlatformSettings) => Promise<void>;
 }
+
+const ColorInput: React.FC<{label: string, value: string, name: string, onChange: (name: string, value: string) => void}> = ({label, value, name, onChange}) => (
+    <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-gray-600">{label}</label>
+        <div className="flex items-center gap-2 border border-gray-200 rounded-lg p-1">
+            <input type="color" value={value} onChange={e => onChange(name, e.target.value)} className="w-8 h-8 rounded border-none cursor-pointer" />
+            <input type="text" value={value} onChange={e => onChange(name, e.target.value)} className="w-24 border-none p-1 text-xs font-mono" />
+        </div>
+    </div>
+);
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, onDelete, onRefresh, currentSettings, onUpdateSettings }) => {
   const navigate = useNavigate();
@@ -362,7 +381,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
                                         disabled={isClearingChat}
                                         className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20 disabled:opacity-50"
                                     >
-                                        {/* FIX: Changed isClearing to isClearingChat */}
                                         {isClearingChat ? <Loader className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
                                         Svuota Chat Ora
                                     </button>
@@ -408,6 +426,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
                                             <Download className="h-4 w-4" /> Esporta Lista d'Attesa (CSV)
                                         </button>
                                     </div>
+                                </div>
+                            </details>
+
+                            {/* Sezione Stile e Colori */}
+                            <details className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                                <summary className="font-bold cursor-pointer flex items-center gap-2"><Palette/> Stile & Colori</summary>
+                                <div className="mt-4 space-y-3">
+                                    <ColorInput label="Sfondo Pagina" name="bg_color_main" value={preLaunchConfig.bg_color_main} onChange={handlePreLaunchColorChange} />
+                                    <hr/>
+                                    <ColorInput label="Testo Principale" name="title_color" value={preLaunchConfig.title_color} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Testo Secondario" name="text_color_body" value={preLaunchConfig.text_color_body} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Gradiente Inizio" name="gradient_start" value={preLaunchConfig.gradient_start} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Gradiente Fine" name="gradient_end" value={preLaunchConfig.gradient_end} onChange={handlePreLaunchColorChange} />
+                                    <hr/>
+                                    <ColorInput label="Bottone Principale" name="button_color" value={preLaunchConfig.button_color} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Colore Accento" name="accent_color" value={preLaunchConfig.accent_color} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Colore Successo" name="success_color" value={preLaunchConfig.success_color} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Colore Errore" name="error_color" value={preLaunchConfig.error_color} onChange={handlePreLaunchColorChange} />
+                                    <hr/>
+                                    <ColorInput label="Sfondo Box" name="container_bg_color" value={preLaunchConfig.container_bg_color} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Bordo Box" name="container_border_color" value={preLaunchConfig.container_border_color} onChange={handlePreLaunchColorChange} />
+                                    <ColorInput label="Sfondo Input" name="input_bg_color" value={preLaunchConfig.input_bg_color} onChange={handlePreLaunchColorChange} />
                                 </div>
                             </details>
 

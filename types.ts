@@ -56,7 +56,7 @@ export interface PreLaunchConfig {
   gradient_start: string;
   gradient_end: string;
   button_color: string;
-  // Nuovi campi per controllo totale
+  // Testi
   admin_login_badge_text: string;
   spots_remaining_text: string;
   spots_soldout_text: string;
@@ -72,6 +72,15 @@ export interface PreLaunchConfig {
   success_priority_subtitle: string;
   success_standard_title: string;
   success_standard_subtitle: string;
+  // Colori
+  bg_color_main: string;
+  text_color_body: string;
+  accent_color: string;
+  error_color: string;
+  success_color: string;
+  container_bg_color: string;
+  container_border_color: string;
+  input_bg_color: string;
 }
 
 // Added LandingPageConfig interface to fix import errors in Home.tsx, AdminDashboard.tsx, Login.tsx, and Footer.tsx
