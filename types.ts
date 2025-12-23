@@ -40,7 +40,7 @@ export interface ChatMessage {
   created_at: string;
 }
 
-// Added PreLaunchConfig interface to fix import errors in ComingSoon.tsx and AdminDashboard.tsx
+// Interfaccia estesa per la pagina di Pre-Lancio
 export interface PreLaunchConfig {
   headline_solid: string;
   headline_gradient: string;
@@ -56,6 +56,22 @@ export interface PreLaunchConfig {
   gradient_start: string;
   gradient_end: string;
   button_color: string;
+  // Nuovi campi per controllo totale
+  admin_login_badge_text: string;
+  spots_remaining_text: string;
+  spots_soldout_text: string;
+  spots_taken_text: string;
+  soldout_cta_text: string;
+  available_cta_text: string;
+  form_disclaimer_text: string;
+  admin_login_text: string;
+  form_name_placeholder: string;
+  form_email_placeholder: string;
+  submitting_button_text: string;
+  success_priority_title: string;
+  success_priority_subtitle: string;
+  success_standard_title: string;
+  success_standard_subtitle: string;
 }
 
 // Added LandingPageConfig interface to fix import errors in Home.tsx, AdminDashboard.tsx, Login.tsx, and Footer.tsx

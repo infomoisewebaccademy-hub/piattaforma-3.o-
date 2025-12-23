@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Course, UserProfile, PlatformSettings, LandingPageConfig, PreLaunchConfig } from '../types';
 import { Plus, Edit2, Trash2, Search, DollarSign, BookOpen, Clock, Eye, Lock, Unlock, Loader, Settings, Image, LayoutTemplate, Activity, HelpCircle, Terminal, AlignLeft, AlignCenter, MoveHorizontal, Sparkles, Wand2, X, MessageCircle, Megaphone, Target, ListOrdered, Book, Pin, Type, ExternalLink, Rocket, Calendar, Palette, Download, Facebook, Instagram, Linkedin, Youtube, Move, Quote, MoveVertical, AlignVerticalJustifyCenter, Maximize, Check, Columns, ArrowRightLeft, BrainCircuit, GitMerge, UserCheck, XCircle, Video, AlertTriangle, TrendingUp, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -134,7 +133,22 @@ const DEFAULT_PRE_LAUNCH_CONFIG: PreLaunchConfig = {
     title_color: "#ffffff",
     gradient_start: "#60a5fa",
     gradient_end: "#c084fc",
-    button_color: "#2563eb"
+    button_color: "#2563eb",
+    admin_login_badge_text: "Area Riservata",
+    spots_remaining_text: "{spots} Posti Rimanenti",
+    spots_soldout_text: "Posti Prioritari Esauriti",
+    spots_taken_text: "{taken} / {max} Iscritti",
+    soldout_cta_text: "Iscriviti comunque per ricevere l'avviso di lancio.",
+    available_cta_text: "Iscriviti ora per assicurarti l'accesso prioritario.",
+    form_disclaimer_text: "Nessuno spam. Solo l'avviso di lancio.",
+    admin_login_text: "Area Riservata Staff",
+    form_name_placeholder: "Nome e Cognome",
+    form_email_placeholder: "La tua email migliore",
+    submitting_button_text: "Prenotazione in corso...",
+    success_priority_title: "Sei il numero #{position} in lista!",
+    success_priority_subtitle: "Hai bloccato ufficialmente il tuo posto prioritario.",
+    success_standard_title: "Sei in lista d'attesa standard.",
+    success_standard_subtitle: "I posti promozionali sono finiti, ma ti avviseremo appena apriamo!"
 };
 
 interface AdminDashboardProps {
@@ -159,12 +173,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
   
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     setLocalSettings(currentSettings);
     if (currentSettings.landing_page_config) setLandingConfig({ ...DEFAULT_LANDING_CONFIG, ...currentSettings.landing_page_config });
     if (currentSettings.pre_launch_config) setPreLaunchConfig({ ...DEFAULT_PRE_LAUNCH_CONFIG, ...currentSettings.pre_launch_config });
   }, [currentSettings]);
+
+  // Invia le modifiche all'iframe di anteprima
+  useEffect(() => {
+      if (activeTab === 'launch' && iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(preLaunchConfig, '*');
+      }
+  }, [preLaunchConfig, activeTab]);
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
@@ -240,6 +262,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
 
   const FONT_OPTIONS = ['Inter', 'Roboto', 'Poppins', 'Montserrat', 'Lato', 'Open Sans'];
 
+  const handlePreLaunchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setPreLaunchConfig(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handlePreLaunchColorChange = (name: string, value: string) => {
+    setPreLaunchConfig(prev => ({ ...prev, [name]: value }));
+  };
+
   return (
     <div className="pt-24 min-h-screen bg-gray-50 pb-20 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -264,8 +295,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
                 <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X className="h-5 w-5"/></button>
                 <h3 className="text-white font-bold text-lg mb-4 flex items-center"><Terminal className="mr-2 h-5 w-5"/> Comandi Database</h3>
                 <div className="bg-black p-4 rounded border border-slate-700 mb-4">
-                    <code className="text-green-400 select-all block mb-2">ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS landing_page_config jsonb;</code>
-                    <code className="text-green-400 select-all block">ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS pre_launch_config jsonb;</code>
+                    <code className="text-green-400 select-all block mb-2">ALTER TABLE public.platform_settings ADD COLUMN IF NOT EXISTS landing_page_config jsonb;</code>
+                    <code className="text-green-400 select-all block">ALTER TABLE public.platform_settings ADD COLUMN IF NOT EXISTS pre_launch_config jsonb;</code>
                 </div>
             </div>
         )}
@@ -331,6 +362,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
                                         disabled={isClearingChat}
                                         className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20 disabled:opacity-50"
                                     >
+                                        {/* FIX: Changed isClearing to isClearingChat */}
                                         {isClearingChat ? <Loader className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
                                         Svuota Chat Ora
                                     </button>
@@ -351,35 +383,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ courses, user, o
 
             {/* PRE-LANCIO TAB */}
             {activeTab === 'launch' && (
-                <div className="space-y-6">
-                    <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-                        <h3 className="text-xl font-bold mb-6 flex items-center"><Rocket className="mr-2 text-red-600"/> Gestione Pagina "Coming Soon"</h3>
-                        <div className="grid md:grid-cols-2 gap-8">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Stato Modalità Lancio</label>
-                                    <button onClick={() => setLocalSettings({...localSettings, is_pre_launch: !localSettings.is_pre_launch})} className={`w-full py-4 rounded-xl font-black text-lg transition-all flex items-center justify-center gap-3 ${localSettings.is_pre_launch ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'bg-green-600 text-white shadow-lg shadow-green-900/20'}`}>
-                                        {localSettings.is_pre_launch ? <><Lock className="h-6 w-6"/> PRE-LANCIO ATTIVO</> : <><Unlock className="h-6 w-6"/> SITO PUBBLICO</>}
-                                    </button>
-                                    <p className="text-xs text-gray-400 mt-2 italic">Se attivo, gli utenti non admin vedranno solo la pagina Coming Soon.</p>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    {/* Colonna Editor */}
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm max-h-[85vh] overflow-y-auto scrollbar-thin">
+                        <h3 className="text-xl font-bold mb-6 flex items-center"><Rocket className="mr-2 text-red-600"/> Editor Pagina "Coming Soon"</h3>
+                        
+                        <div className="space-y-6">
+                            {/* Sezione Attivazione */}
+                            <details open className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                                <summary className="font-bold cursor-pointer">Attivazione & Timer</summary>
+                                <div className="mt-4 space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Stato Modalità Lancio</label>
+                                        <button onClick={() => setLocalSettings({...localSettings, is_pre_launch: !localSettings.is_pre_launch})} className={`w-full py-3 rounded-xl font-black text-md transition-all flex items-center justify-center gap-3 ${localSettings.is_pre_launch ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'bg-green-600 text-white shadow-lg shadow-green-900/20'}`}>
+                                            {localSettings.is_pre_launch ? <><Lock className="h-5 w-5"/> PRE-LANCIO ATTIVO</> : <><Unlock className="h-5 w-5"/> SITO PUBBLICO</>}
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Data del Lancio (Countdown)</label>
+                                        <input type="datetime-local" value={localSettings.pre_launch_date || ''} onChange={(e) => setLocalSettings({...localSettings, pre_launch_date: e.target.value})} className="w-full border-gray-300 rounded-lg p-2 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                                    </div>
+                                    <div className="pt-2">
+                                        <button onClick={handleExportCSV} className="w-full bg-slate-800 text-white py-2.5 rounded-lg font-bold hover:bg-black flex items-center justify-center gap-2 text-sm transition-all">
+                                            <Download className="h-4 w-4" /> Esporta Lista d'Attesa (CSV)
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Data del Lancio (Countdown)</label>
-                                    <input type="datetime-local" value={localSettings.pre_launch_date || ''} onChange={(e) => setLocalSettings({...localSettings, pre_launch_date: e.target.value})} className="w-full border-gray-300 rounded-xl p-3 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                            </details>
+
+                            {/* Sezione Contenuti Principali */}
+                            <details className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                                <summary className="font-bold cursor-pointer">Contenuti Principali</summary>
+                                <div className="mt-4 space-y-3">
+                                    <input name="headline_solid" value={preLaunchConfig.headline_solid} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Titolo Fisso" />
+                                    <input name="headline_gradient" value={preLaunchConfig.headline_gradient} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Titolo Gradiente" />
+                                    <textarea name="description" rows={3} value={preLaunchConfig.description} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Descrizione"></textarea>
+                                    <input name="subheadline" value={preLaunchConfig.subheadline} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Sottotitolo secondario" />
                                 </div>
-                                <div className="pt-4">
-                                    <button onClick={handleExportCSV} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-black flex items-center justify-center gap-2 transition-all">
-                                        <Download className="h-5 w-5" /> Esporta Lista d'Attesa (CSV)
-                                    </button>
+                            </details>
+
+                            {/* Sezione Form Iscrizione */}
+                            <details className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                                <summary className="font-bold cursor-pointer">Box Iscrizione</summary>
+                                <div className="mt-4 space-y-3">
+                                    <input name="offer_badge" value={preLaunchConfig.offer_badge} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Badge Offerta (es. AI Revolution)" />
+                                    <input name="offer_title" value={preLaunchConfig.offer_title} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Titolo Box" />
+                                    <textarea name="offer_text" rows={2} value={preLaunchConfig.offer_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Testo Offerta"></textarea>
+                                    <input name="form_name_placeholder" value={preLaunchConfig.form_name_placeholder} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Placeholder Nome" />
+                                    <input name="form_email_placeholder" value={preLaunchConfig.form_email_placeholder} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Placeholder Email" />
+                                    <input name="cta_text" value={preLaunchConfig.cta_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Testo Bottone" />
+                                    <input name="submitting_button_text" value={preLaunchConfig.submitting_button_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Testo Bottone (invio...)" />
+                                    <input name="form_disclaimer_text" value={preLaunchConfig.form_disclaimer_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Disclaimer Sotto il Form" />
                                 </div>
-                            </div>
-                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 space-y-4">
-                                <h4 className="font-bold text-gray-900 border-b pb-2">Contenuti Pagina Lancio</h4>
-                                <input type="text" value={preLaunchConfig.headline_solid} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, headline_solid: e.target.value})} className="w-full border p-2 rounded text-sm mb-2" placeholder="Titolo Fisso" />
-                                <input type="text" value={preLaunchConfig.headline_gradient} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, headline_gradient: e.target.value})} className="w-full border p-2 rounded text-sm mb-2" placeholder="Titolo Gradiente" />
-                                <textarea rows={3} value={preLaunchConfig.description} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, description: e.target.value})} className="w-full border p-2 rounded text-sm" placeholder="Descrizione"></textarea>
-                                <input type="text" value={preLaunchConfig.cta_text} onChange={(e) => setPreLaunchConfig({...preLaunchConfig, cta_text: e.target.value})} className="w-full border p-2 rounded text-sm" placeholder="Testo Bottone" />
-                            </div>
+                            </details>
+                            
+                            {/* Sezione Barra Posti */}
+                            <details className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                                <summary className="font-bold cursor-pointer">Barra Posti Rimanenti</summary>
+                                <div className="mt-4 space-y-3">
+                                    <p className="text-xs text-gray-500">Usa `{'{spots}'}`, `{'{taken}'}`, `{'{max}'}` come variabili.</p>
+                                    <input name="spots_remaining_text" value={preLaunchConfig.spots_remaining_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" />
+                                    <input name="spots_soldout_text" value={preLaunchConfig.spots_soldout_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" />
+                                    <input name="spots_taken_text" value={preLaunchConfig.spots_taken_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" />
+                                    <input name="available_cta_text" value={preLaunchConfig.available_cta_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" />
+                                    <input name="soldout_cta_text" value={preLaunchConfig.soldout_cta_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" />
+                                </div>
+                            </details>
+
+                            {/* Sezione Messaggi Successo */}
+                            <details className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                                <summary className="font-bold cursor-pointer">Messaggi di Successo</summary>
+                                <div className="mt-4 space-y-3">
+                                     <p className="text-xs text-gray-500">Usa `{'({position})'}` per la posizione in lista.</p>
+                                     <input name="success_title" value={preLaunchConfig.success_title} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Titolo Successo Generico" />
+                                     <textarea name="success_text" rows={2} value={preLaunchConfig.success_text} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Testo Successo Generico"></textarea>
+                                     <hr/>
+                                     <input name="success_priority_title" value={preLaunchConfig.success_priority_title} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Titolo Successo Prioritario" />
+                                     <input name="success_priority_subtitle" value={preLaunchConfig.success_priority_subtitle} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Sottotitolo Successo Prioritario" />
+                                     <hr/>
+                                     <input name="success_standard_title" value={preLaunchConfig.success_standard_title} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Titolo Successo Standard" />
+                                     <input name="success_standard_subtitle" value={preLaunchConfig.success_standard_subtitle} onChange={handlePreLaunchChange} className="w-full border p-2 rounded text-sm" placeholder="Sottotitolo Successo Standard" />
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                    
+                    {/* Colonna Anteprima */}
+                    <div className="relative">
+                        <div className="sticky top-20">
+                           <h3 className="text-lg font-bold mb-2">Anteprima Live</h3>
+                           <iframe ref={iframeRef} src="/#/coming-soon?preview=true" className="w-full h-[75vh] border-4 border-gray-300 rounded-lg shadow-lg" title="Anteprima Pre-lancio"></iframe>
                         </div>
                     </div>
                 </div>

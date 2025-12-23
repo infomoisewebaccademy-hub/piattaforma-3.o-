@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Timer, Mail, Zap, CheckCircle, Lock, Key, User, TrendingUp, AlertTriangle } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PreLaunchConfig } from '../types';
 
 interface ComingSoonProps {
@@ -25,54 +25,89 @@ const DEFAULT_CONFIG: PreLaunchConfig = {
     title_color: "#ffffff",
     gradient_start: "#60a5fa",
     gradient_end: "#c084fc",
-    button_color: "#2563eb"
+    button_color: "#2563eb",
+    admin_login_badge_text: "Area Riservata",
+    spots_remaining_text: "{spots} Posti Rimanenti",
+    spots_soldout_text: "Posti Prioritari Esauriti",
+    spots_taken_text: "{taken} / {max} Iscritti",
+    soldout_cta_text: "Iscriviti comunque per ricevere l'avviso di lancio.",
+    available_cta_text: "Iscriviti ora per assicurarti l'accesso prioritario.",
+    form_disclaimer_text: "Nessuno spam. Solo l'avviso di lancio.",
+    admin_login_text: "Area Riservata Staff",
+    form_name_placeholder: "Nome e Cognome",
+    form_email_placeholder: "La tua email migliore",
+    submitting_button_text: "Prenotazione in corso...",
+    success_priority_title: "Sei il numero #{position} in lista!",
+    success_priority_subtitle: "Hai bloccato ufficialmente il tuo posto prioritario.",
+    success_standard_title: "Sei in lista d'attesa standard.",
+    success_standard_subtitle: "I posti promozionali sono finiti, ma ti avviseremo appena apriamo!"
 };
 
 const MAX_SPOTS = 25; // Numero massimo posti prioritari
 
-export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate, config }) => {
+export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate: initialLaunchDate, config: initialConfig }) => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const isPreview = searchParams.get('preview') === 'true';
+
+    // Lo stato liveConfig gestisce gli aggiornamenti in tempo reale dall'editor
+    const [liveConfig, setLiveConfig] = useState(initialConfig);
+    
+    // Lo stato della data di lancio viene gestito internamente per l'anteprima
+    const [launchDate, setLaunchDate] = useState(initialLaunchDate);
+
+    // Effetto per l'ascolto dei messaggi in modalità anteprima
+    useEffect(() => {
+        if (isPreview) {
+            const handleMessage = (event: MessageEvent) => {
+                // Semplice validazione per assicurarci di ricevere un oggetto di configurazione
+                if (event.data && typeof event.data === 'object' && 'headline_solid' in event.data) {
+                    setLiveConfig(event.data);
+                }
+            };
+            window.addEventListener('message', handleMessage);
+            return () => window.removeEventListener('message', handleMessage);
+        }
+    }, [isPreview]);
+
+    // Determina quale configurazione usare: quella live dall'editor o quella passata dalle props
+    const config = isPreview ? liveConfig : initialConfig;
+
     const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
     const [email, setEmail] = useState('');
     const [fullName, setFullName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     
-    // Stati per la gestione dei posti
     const [spotsTaken, setSpotsTaken] = useState<number>(0);
     const [userPosition, setUserPosition] = useState<number | null>(null);
 
+    // Unisce la configurazione attuale con quella di default per evitare errori
     const text = { ...DEFAULT_CONFIG, ...config };
-    const displaySolid = text.headline_solid || "CREA SITI E APP";
-    const displayGradient = text.headline_gradient || "CON L'INTELLIGENZA ARTIFICIALE";
+    const displaySolid = text.headline_solid || DEFAULT_CONFIG.headline_solid;
+    const displayGradient = text.headline_gradient || DEFAULT_CONFIG.headline_gradient;
 
-    // 1. Fetch iniziale dei posti occupati
+    // Fetch dei posti occupati solo in modalità reale
     useEffect(() => {
-        const fetchCount = async () => {
-            const { count } = await supabase
-                .from('waiting_list')
-                .select('*', { count: 'exact', head: true });
-            
-            // Per simulare urgenza se il DB è vuoto, partiamo visivamente da 3 se count è 0, 
-            // altrimenti usiamo il vero count. (Opzionale: rimuovi "|| 3" per usare solo dati reali)
-            setSpotsTaken(count || 0);
-        };
-        
-        fetchCount();
-        
-        // Polling ogni 30 secondi per aggiornare i posti
-        const interval = setInterval(fetchCount, 30000);
-        return () => clearInterval(interval);
-    }, []);
+        if (!isPreview) {
+            const fetchCount = async () => {
+                const { count } = await supabase.from('waiting_list').select('*', { count: 'exact', head: true });
+                setSpotsTaken(count || 0);
+            };
+            fetchCount();
+            const interval = setInterval(fetchCount, 30000);
+            return () => clearInterval(interval);
+        } else {
+            setSpotsTaken(Math.floor(MAX_SPOTS / 2));
+        }
+    }, [isPreview]);
 
-    // 2. Countdown Timer
+    // Logica del Countdown
     useEffect(() => {
         const target = launchDate ? new Date(launchDate).getTime() : new Date().getTime() + 86400000 * 5; 
-
         const interval = setInterval(() => {
             const now = new Date().getTime();
             const distance = target - now;
-
             if (distance < 0) {
                 clearInterval(interval);
                 setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -85,44 +120,29 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate, config }) =>
                 });
             }
         }, 1000);
-
         return () => clearInterval(interval);
     }, [launchDate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!fullName.trim() || !email.trim()) {
-            alert("Inserisci tutti i campi.");
-            return;
-        }
-
+        if (isPreview || !fullName.trim() || !email.trim()) return;
         setIsSubmitting(true);
-
         try {
-            // Inseriamo e contiamo in che posizione siamo
             const { error } = await supabase.from('waiting_list').insert([{ email, full_name: fullName }]);
-            
             if (error) {
-                if (error.code === '23505') { // Unique violation (email già presente)
+                if (error.code === '23505') {
                      alert("Questa email è già in lista d'attesa!");
                      setIsSuccess(true);
-                } else {
-                    throw error;
-                }
+                } else throw error;
             } else {
-                // Calcoliamo la posizione approssimativa (spotsTaken + 1)
                 setUserPosition(spotsTaken + 1);
                 setSpotsTaken(prev => prev + 1);
                 setIsSuccess(true);
             }
-        } catch (error: any) {
-            alert("Errore: " + error.message);
-        } finally {
-            setIsSubmitting(false);
-        }
+        } catch (error: any) { alert("Errore: " + error.message); } 
+        finally { setIsSubmitting(false); }
     };
 
-    // Calcolo Percentuale Barra
     const progressPercent = Math.min((spotsTaken / MAX_SPOTS) * 100, 100);
     const spotsRemaining = Math.max(0, MAX_SPOTS - spotsTaken);
     const isSoldOut = spotsTaken >= MAX_SPOTS;
@@ -130,50 +150,27 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate, config }) =>
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans p-4">
             
-            {/* Background Effects */}
-            <div 
-                className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full blur-[120px] pointer-events-none opacity-20"
-                style={{ backgroundColor: text.gradient_start }}
-            ></div>
-            <div 
-                className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full blur-[120px] pointer-events-none opacity-10"
-                style={{ backgroundColor: text.gradient_end }}
-            ></div>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full blur-[120px] pointer-events-none opacity-20" style={{ backgroundColor: text.gradient_start }}></div>
+            <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full blur-[120px] pointer-events-none opacity-10" style={{ backgroundColor: text.gradient_end }}></div>
 
-            {/* Content Container */}
             <div className="relative z-10 max-w-4xl w-full text-center">
                 
-                {/* Badge */}
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900 border border-white/10 text-white/70 font-bold text-xs uppercase tracking-[0.2em] mb-8 animate-pulse shadow-[0_0_20px_rgba(255,255,255,0.05)]">
-                    <Lock className="h-3 w-3" /> Area Riservata
+                    <Lock className="h-3 w-3" /> {text.admin_login_badge_text}
                 </div>
 
                 <h1 className="text-4xl md:text-6xl lg:text-8xl font-black mb-6 tracking-tight leading-tight uppercase">
-                    <span style={{ color: text.title_color }}>
-                        {displaySolid}
-                    </span>
-                    <br/>
-                    <span 
-                        className="text-transparent bg-clip-text"
-                        style={{ backgroundImage: `linear-gradient(to right, ${text.gradient_start}, ${text.gradient_end})` }}
-                    >
-                        {displayGradient}
-                    </span>
+                    <span style={{ color: text.title_color }}>{displaySolid}</span><br/>
+                    <span className="text-transparent bg-clip-text" style={{ backgroundImage: `linear-gradient(to right, ${text.gradient_start}, ${text.gradient_end})` }}>{displayGradient}</span>
                 </h1>
 
-                <p className="text-slate-400 text-lg md:text-2xl max-w-2xl mx-auto mb-12 leading-relaxed">
+                <p className="text-slate-400 text-lg md:text-2xl max-w-2xl mx-auto mb-12 leading-relaxed whitespace-pre-wrap">
                     {text.description} <br/>
                     <span className="text-white font-bold">{text.subheadline}</span>
                 </p>
 
-                {/* Countdown */}
                 <div className="flex flex-row justify-center gap-2 md:gap-8 max-w-3xl mx-auto mb-12 md:mb-16">
-                    {[
-                        { label: 'Giorni', value: timeLeft.days },
-                        { label: 'Ore', value: timeLeft.hours },
-                        { label: 'Minuti', value: timeLeft.minutes },
-                        { label: 'Secondi', value: timeLeft.seconds }
-                    ].map((item, idx) => (
+                    {[{ label: 'Giorni', value: timeLeft.days }, { label: 'Ore', value: timeLeft.hours }, { label: 'Minuti', value: timeLeft.minutes }, { label: 'Secondi', value: timeLeft.seconds }].map((item, idx) => (
                         <div key={idx} className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-2 md:p-6 rounded-xl md:rounded-2xl flex flex-col items-center shadow-2xl min-w-[70px] md:min-w-[120px]">
                             <span className="text-2xl md:text-6xl font-black text-white font-mono">{String(item.value).padStart(2, '0')}</span>
                             <span className="text-[10px] md:text-xs text-slate-500 uppercase tracking-widest mt-1 md:mt-2">{item.label}</span>
@@ -181,7 +178,6 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate, config }) =>
                     ))}
                 </div>
 
-                {/* Offer Box */}
                 <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 md:p-8 rounded-3xl border border-slate-700 shadow-2xl max-w-xl mx-auto relative overflow-hidden group text-left md:text-center">
                     <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-400/20 rounded-full blur-2xl group-hover:bg-yellow-400/30 transition-all"></div>
                     
@@ -192,125 +188,68 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({ launchDate, config }) =>
                             </div>
                             <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">{text.offer_title}</h3>
                             
-                            {/* LIVE SPOTS COUNTER BAR */}
                             <div className="mb-6">
                                 <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
                                     <span className={isSoldOut ? "text-red-400" : "text-green-400"}>
-                                        {isSoldOut ? "Posti Prioritari Esauriti" : `${spotsRemaining} Posti Rimanenti`}
+                                        {isSoldOut ? text.spots_soldout_text : text.spots_remaining_text.replace('{spots}', String(spotsRemaining))}
                                     </span>
-                                    <span className="text-slate-500">{spotsTaken} / {MAX_SPOTS} Iscritti</span>
+                                    <span className="text-slate-500">{text.spots_taken_text.replace('{taken}', String(spotsTaken)).replace('{max}', String(MAX_SPOTS))}</span>
                                 </div>
                                 <div className="h-3 bg-slate-950 rounded-full overflow-hidden border border-white/10 relative">
-                                    <div 
-                                        className={`h-full transition-all duration-1000 ease-out ${isSoldOut ? 'bg-red-500' : 'bg-yellow-400 shadow-[0_0_15px_#facc15]'}`}
-                                        style={{ width: `${progressPercent}%` }}
-                                    ></div>
+                                    <div className={`h-full transition-all duration-1000 ease-out ${isSoldOut ? 'bg-red-500' : 'bg-yellow-400 shadow-[0_0_15px_#facc15]'}`} style={{ width: `${progressPercent}%` }}></div>
                                 </div>
                                 <p className="text-xs text-slate-400 mt-2 text-left md:text-center">
-                                    {isSoldOut 
-                                        ? "Iscriviti comunque per ricevere l'avviso di lancio." 
-                                        : "Iscriviti ora per assicurarti l'accesso prioritario."}
+                                    {isSoldOut ? text.soldout_cta_text : text.available_cta_text}
                                 </p>
                             </div>
 
-                            <p className="text-slate-300 mb-6 text-sm">
-                                {text.offer_text}
-                            </p>
+                            <p className="text-slate-300 mb-6 text-sm whitespace-pre-wrap">{text.offer_text}</p>
 
                             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <User className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    <input 
-                                        type="text" 
-                                        required
-                                        placeholder="Nome e Cognome"
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl py-4 pl-10 pr-4 text-white placeholder-slate-600 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all"
-                                    />
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-5 w-5 text-slate-500" /></div>
+                                    <input type="text" required placeholder={text.form_name_placeholder} value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-4 pl-10 pr-4 text-white placeholder-slate-600 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all" />
                                 </div>
-
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-slate-500" />
-                                    </div>
-                                    <input 
-                                        type="email" 
-                                        required
-                                        placeholder="La tua email migliore"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl py-4 pl-10 pr-4 text-white placeholder-slate-600 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all"
-                                    />
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-500" /></div>
+                                    <input type="email" required placeholder={text.form_email_placeholder} value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-4 pl-10 pr-4 text-white placeholder-slate-600 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all" />
                                 </div>
-
-                                <button 
-                                    type="submit" 
-                                    disabled={isSubmitting}
-                                    style={{ backgroundColor: text.button_color }}
-                                    className="w-full text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-wide mt-2"
-                                >
-                                    {isSubmitting ? 'Prenotazione in corso...' : text.cta_text}
+                                <button type="submit" disabled={isSubmitting} style={{ backgroundColor: text.button_color }} className="w-full text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-wide mt-2">
+                                    {isSubmitting ? text.submitting_button_text : text.cta_text}
                                 </button>
                             </form>
-                            <p className="text-[10px] text-slate-600 mt-4 text-center">Nessuno spam. Solo l'avviso di lancio.</p>
+                            <p className="text-[10px] text-slate-600 mt-4 text-center">{text.form_disclaimer_text}</p>
                         </>
                     ) : (
                         <div className="py-8 text-center animate-in zoom-in duration-300">
-                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <CheckCircle className="h-10 w-10 text-green-500" />
-                            </div>
+                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle className="h-10 w-10 text-green-500" /></div>
                             <h3 className="text-2xl font-bold text-white mb-2">{text.success_title}</h3>
                             
-                            {/* Feedback Posizione */}
                             {userPosition && userPosition <= MAX_SPOTS ? (
                                 <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl mb-4 inline-block">
-                                    <p className="text-yellow-300 font-bold flex items-center justify-center gap-2">
-                                        <TrendingUp className="h-5 w-5" />
-                                        Sei il numero #{userPosition} in lista!
-                                    </p>
-                                    <p className="text-slate-400 text-sm mt-1">
-                                        Hai bloccato ufficialmente il tuo posto prioritario.
-                                    </p>
+                                    <p className="text-yellow-300 font-bold flex items-center justify-center gap-2"><TrendingUp className="h-5 w-5" />{text.success_priority_title.replace('{position}', String(userPosition))}</p>
+                                    <p className="text-slate-400 text-sm mt-1">{text.success_priority_subtitle}</p>
                                 </div>
                             ) : (
                                 <div className="bg-slate-700/30 p-4 rounded-xl mb-4 inline-block">
-                                    <p className="text-slate-300 font-bold flex items-center justify-center gap-2">
-                                        <AlertTriangle className="h-5 w-5 text-slate-400" />
-                                        Sei in lista d'attesa standard.
-                                    </p>
-                                    <p className="text-slate-500 text-sm mt-1">
-                                        I posti promozionali sono finiti, ma ti avviseremo appena apriamo!
-                                    </p>
+                                    <p className="text-slate-300 font-bold flex items-center justify-center gap-2"><AlertTriangle className="h-5 w-5 text-slate-400" />{text.success_standard_title}</p>
+                                    <p className="text-slate-500 text-sm mt-1">{text.success_standard_subtitle}</p>
                                 </div>
                             )}
-
-                            <p className="text-slate-400 max-w-sm mx-auto">
-                                {text.success_text}
-                            </p>
+                            <p className="text-slate-400 max-w-sm mx-auto whitespace-pre-wrap">{text.success_text}</p>
                         </div>
                     )}
                 </div>
-
             </div>
 
-            {/* Footer Admin Link */}
             <div className="absolute bottom-4 right-4 z-50">
-                <button 
-                    onClick={() => navigate('/login')} 
-                    className="flex items-center gap-2 p-2 text-xs font-bold uppercase tracking-widest text-slate-500 opacity-10 hover:opacity-100 hover:text-white transition-all duration-300"
-                    title="Area Staff"
-                >
-                    <Key className="h-3 w-3" /> Area Riservata Staff
+                <button onClick={() => navigate('/login')} className="flex items-center gap-2 p-2 text-xs font-bold uppercase tracking-widest text-slate-500 opacity-10 hover:opacity-100 hover:text-white transition-all duration-300" title="Area Staff">
+                    <Key className="h-3 w-3" /> {text.admin_login_text}
                 </button>
             </div>
             
             <div className="absolute bottom-4 w-full text-center pointer-events-none opacity-30">
-                 <div className="text-slate-600 text-[10px]">
-                    &copy; {new Date().getFullYear()} Moise Web Academy
-                </div>
+                 <div className="text-slate-600 text-[10px]">&copy; {new Date().getFullYear()} Moise Web Academy</div>
             </div>
         </div>
     );
